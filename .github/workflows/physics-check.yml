@@ -1,0 +1,36 @@
+# Opens the game in a real browser on GitHub's computers and checks the physics:
+# stacks stand still on every level, and aimed shots can clear a sample of levels.
+# Results: the run's summary page, plus screenshots under "Artifacts".
+name: Physics check
+
+on:
+  push:
+    branches: [rapier-physics, main]
+    paths: ['public/**', 'tests/**', '.github/workflows/physics-check.yml']
+  workflow_dispatch:
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install a test browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Run the physics check
+        run: node tests/physics-check.mjs
+      - name: Add the report to the run summary
+        if: always()
+        run: cat test-output/report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-check
+          path: test-output/
+          retention-days: 14

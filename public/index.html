@@ -167,15 +167,20 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 <script>
 (function(){
 'use strict';
-if(!window.THREE||!window.CANNON){
+if(!window.THREE){
   document.getElementById('stage').innerHTML='<div id="err">The game did not load. Check your connection and refresh the page.</div>';
   return;
 }
 const $=id=>document.getElementById(id);
+/* Physics: Rapier 3D (WebAssembly). The compat build carries its engine inside the JS file. */
+const RAPIER_URL='https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs';
+let R=null,eventQ=null,colMap=new Map(),testFreeze=false;
+const ZERO={x:0,y:0,z:0};
+const vlen=v=>Math.hypot(v.x,v.y,v.z);
+const RADIUS=0.29;
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
@@ -412,7 +417,6 @@ const reticle=new THREE.Mesh(new THREE.RingGeometry(0.2,0.3,32),M.ring);reticle.
 let reticleLife=0;
 
 /* ---------- state ---------- */
-const stoneMat=new CANNON.Material('stone');
 let world=null,cur=0,state='title',settling=false,used=0;
 let ents=[],targets=[],balls=[],decals=[],remaining=0,ballsLeft=0,ballsMax=0;
 let holding=false,aimP=V3(0,2,-10),shot=null,cooldown=0,recoil=0,shake=0;
@@ -485,11 +489,13 @@ function clearLevel(){
 function loadLevel(i){
   cur=(i+LEVELS.length)%LEVELS.length;const L=LEVELS[cur];
   clearLevel();
-  world=new CANNON.World();world.gravity.set(0,-GRAV,0);
-  world.broadphase=new CANNON.SAPBroadphase(world);world.solver.iterations=10;world.allowSleep=true;
-  world.defaultContactMaterial.friction=0.5;world.defaultContactMaterial.restitution=0.08;
-  world.addContactMaterial(new CANNON.ContactMaterial(stoneMat,world.defaultMaterial,{friction:0.22,restitution:0.05}));
-  const floor=new CANNON.Body({mass:0});floor.addShape(new CANNON.Plane());floor.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2);floor.isFloor=true;world.addBody(floor);
+  if(world){try{world.free()}catch(_){}}
+  world=new R.World({x:0,y:-GRAV,z:0});
+  world.timestep=DT;
+  try{world.numSolverIterations=8}catch(_){}
+  colMap=new Map();
+  const fixedBox=(x,y,z,hx,hy,hz,fr,tag)=>{const b=world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(x,y,z));const c=world.createCollider(R.ColliderDesc.cuboid(hx,hy,hz).setFriction(fr).setRestitution(0.02),b);colMap.set(c.handle,{kind:tag});return b};
+  fixedBox(0,-0.5,-15,60,0.5,60,0.9,'floor');
 
   ballsMax=L.balls;ballsLeft=ballsMax;used=0;remaining=0;crumbleQ=[];
   calmSteps=0;endTimer=-1;ended=false;combo=0;comboTimer=0;cooldown=0;
@@ -497,8 +503,8 @@ function loadLevel(i){
   L.tables.forEach(tb=>{
     const cols=tb.cols,w=cols*CELL+0.3,d=Math.max(1.0,tb.depth*CELL+0.4),h=tb.h;
     const zc=tb.z-(tb.depth-1)*CELL/2;
-    const top=new CANNON.Body({mass:0});top.addShape(new CANNON.Box(new CANNON.Vec3(w/2,0.08,d/2)));top.position.set(tb.x,h-0.08,zc);world.addBody(top);
-    const col=new CANNON.Body({mass:0});col.addShape(new CANNON.Box(new CANNON.Vec3(0.24,(h-0.16)/2,0.24)));col.position.set(tb.x,(h-0.16)/2,zc);world.addBody(col);
+    fixedBox(tb.x,h-0.08,zc,w/2,0.08,d/2,0.6,'table');
+    fixedBox(tb.x,(h-0.16)/2,zc,0.24,Math.max(0.02,(h-0.16)/2),0.24,0.6,'table');
     const grp=new THREE.Group();
     const slab=new THREE.Mesh(G.box,M.wood);slab.scale.set(w,0.16,d);slab.position.set(tb.x,h-0.08,zc);slab.castShadow=slab.receiveShadow=true;grp.add(slab);
     const edge=new THREE.Mesh(G.box,M.woodDark);edge.scale.set(w+0.04,0.06,d+0.04);edge.position.set(tb.x,h-0.17,zc);grp.add(edge);
@@ -514,23 +520,25 @@ function loadLevel(i){
         const ch=line[c];if(ch==='.')continue;
         const kind=ch==='J'?'jar':ch==='T'?'tin':'stone';
         const mesh=kind==='jar'?makeJar(tb.jar):kind==='tin'?makeTin(tb.tin):(()=>{const m=new THREE.Mesh(G.box,M.stone);m.scale.set(HALF[0]*2,HALF[1]*2,HALF[2]*2);m.castShadow=m.receiveShadow=true;return m})();
-        const body=new CANNON.Body({mass:kind==='jar'?0.5:kind==='tin'?0.35:0.8});
-        if(kind==='stone')body.material=stoneMat;
-        body.addShape(new CANNON.Box(new CANNON.Vec3(HALF[0],HALF[1],HALF[2])));
-        body.position.set(x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL);
-        body.linearDamping=0.05;body.angularDamping=0.15;
-        body.allowSleep=true;body.sleepSpeedLimit=0.25;body.sleepTimeLimit=0.3;
-        const e={mesh,body,kind,jam:tb.jar,broken:false};
+        const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
+          .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL)
+          .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true));
+        const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):R.ColliderDesc.cylinder(HALF[1],RADIUS))
+          .setMass(kind==='jar'?0.5:kind==='tin'?0.35:0.8)
+          .setFriction(kind==='stone'?0.25:kind==='tin'?0.45:0.55).setRestitution(0.05)
+          .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
+        const col=world.createCollider(cd,body);
+        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO};
         if(kind!=='stone'){e.target=true;targets.push(e);remaining++}
-        body.ent=e;body.addEventListener('collide',ev=>onCollide(e,ev));
-        world.addBody(body);pickables.add(mesh);ents.push(e);
+        colMap.set(col.handle,e);
+        pickables.add(mesh);ents.push(e);
       }
     }}
   });
 
   settling=true;
-  for(let k=0;k<120;k++)world.step(DT);
-  for(const e of ents)if(e.body){e.body.velocity.set(0,0,0);e.body.angularVelocity.set(0,0,0);e.body.sleep()}
+  for(let k=0;k<120;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
+  for(const e of ents)if(e.body){e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);try{e.body.sleep()}catch(_){}e.synced=false}
   settling=false;
   syncMeshes();
   $('lvlName').textContent=`Level ${cur+1} · ${L.name}`;
@@ -539,19 +547,28 @@ function loadLevel(i){
   if(cur===0&&!firedOnce)$('hint').classList.remove('gone');else $('hint').classList.add('gone');
 }
 
-function rmBody(b){if(world.removeBody)world.removeBody(b);else world.remove(b)}
-/* ---------- collisions ---------- */
-function onCollide(e,ev){
-  if(settling||e.broken)return;
-  const o=ev.body;let iv=0;try{iv=Math.abs(ev.contact.getImpactVelocityAlongNormal())}catch(_){}
+function rmBody(o){if(o.col)colMap.delete(o.col.handle);try{world.removeRigidBody(o.body)}catch(_){}}
+function posOf(o){const t=o.body.translation();return V3(t.x,t.y,t.z)}
+/* ---------- collisions ----------
+   Rapier reports when two things start touching. How hard they hit is the
+   difference in their speeds just before this step. */
+function onContact(h1,h2,started){
+  if(!started||settling)return;
+  const a=colMap.get(h1),b=colMap.get(h2);if(!a||!b)return;
+  const va=a.pv||ZERO,vb=b.pv||ZERO;
+  const iv=Math.hypot(va.x-vb.x,va.y-vb.y,va.z-vb.z);
+  onHit(a,b,iv);onHit(b,a,iv);
+}
+function onHit(e,o,iv){
+  if(!e.body||e.broken||e.queued)return;
   if(e.kind==='jar'){
-    if(o.isFloor||(o.isBall&&iv>1.4)||iv>3.4)queueBreak(e);
+    if(o.kind==='floor'||(o.kind==='ball'&&iv>1.5)||iv>3.6)queueBreak(e);
     else if(iv>1.2)sfx.clank(.5);
   }else if(e.kind==='tin'){
-    if(o.isFloor)queueBreak(e);
+    if(o.kind==='floor')queueBreak(e);
     else if(iv>1.2)sfx.clank(Math.min(1,iv/5));
   }else if(e.kind==='stone'){
-    if(o.isFloor&&!e.crumbled&&e.body.position.y<1){e.crumbled=true;crumbleQ.push(e)}
+    if(o.kind==='floor'&&!e.crumbled&&e.body.translation().y<1){e.crumbled=true;crumbleQ.push(e)}
     else if(iv>2)sfx.thud(Math.min(1,iv/7));
   }
 }
@@ -560,8 +577,8 @@ function queueBreak(e){if(!e.queued){e.queued=true;breakQ.push(e)}}
 function spawn(o,props){if(fx.length>480){scene.remove(o);return}o.renderOrder=5;scene.add(o);fx.push(Object.assign({o},props))}
 function smash(e){
   if(e.broken)return;e.broken=true;
-  rmBody(e.body);pickables.remove(e.mesh);
-  const p=e.body.position,P=V3(p.x,p.y,p.z);
+  const P=posOf(e);
+  rmBody(e);pickables.remove(e.mesh);
   wakeNear(P);
   if(e.kind==='jar'){
     const jm=jamMats[e.jam];
@@ -584,8 +601,8 @@ function smash(e){
 }
 function crumble(e){
   if(e.broken)return;e.broken=true;
-  const p=e.body.position,P=V3(p.x,p.y,p.z);
-  wakeNear(P);rmBody(e.body);pickables.remove(e.mesh);
+  const P=posOf(e);
+  rmBody(e);pickables.remove(e.mesh);wakeNear(P);
   for(let i=0;i<6;i++)puff(P,0xC9D0D8,1.1);
   for(let i=0;i<6;i++){const m=new THREE.Mesh(G.shard,M.stone);const k=rnd(1.2,2.2);m.scale.set(k,k,k);m.position.set(P.x+rnd(-.2,.2),P.y+rnd(-.1,.2),P.z+rnd(-.2,.2));spawn(m,{v:V3(rnd(-2,2),rnd(1,3),rnd(-1.5,1.5)),spin:V3(rnd(-8,8),rnd(-8,8),0),life:rnd(.6,1)})}
   sfx.thud(1);
@@ -632,12 +649,14 @@ function solve(P){
 function fire(){
   if(state!=='play'||ended||(!infinite&&ballsLeft<=0)||cooldown>0||!shot)return;
   const {S,v}=shot;
-  const body=new CANNON.Body({mass:3});body.addShape(new CANNON.Sphere(0.26));
-  body.position.set(S.x,S.y,S.z);body.velocity.set(v.x,v.y,v.z);body.angularVelocity.set(rnd(-8,8),rnd(-8,8),rnd(-8,8));
-  body.linearDamping=0;body.angularDamping=0.3;body.allowSleep=false;body.isBall=true;
-  world.addBody(body);
+  const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
+    .setTranslation(S.x,S.y,S.z).setLinvel(v.x,v.y,v.z).setAngvel({x:rnd(-8,8),y:rnd(-8,8),z:rnd(-8,8)})
+    .setLinearDamping(0).setAngularDamping(0.3).setCcdEnabled(true).setCanSleep(false));
+  const col=world.createCollider(R.ColliderDesc.ball(0.26).setMass(3).setRestitution(0.3).setFriction(0.4)
+    .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),body);
   const mesh=new THREE.Mesh(G.ball,M.ball);mesh.castShadow=true;scene.add(mesh);
-  balls.push({body,mesh,age:0,still:0});
+  const ballObj={body,col,mesh,kind:'ball',age:0,still:0,pv:{x:v.x,y:v.y,z:v.z}};
+  colMap.set(col.handle,ballObj);balls.push(ballObj);
   used++;if(!infinite)ballsLeft--;cooldown=32;recoil=1;shake=Math.max(shake,.06);
   reticle.position.copy(aimP);reticleLife=.35;
   for(let i=0;i<5;i++)puff(S,0xFFFFFF,1);
@@ -646,32 +665,29 @@ function fire(){
 }
 
 /* ---------- simulation ---------- */
+function syncOne(o){const t=o.body.translation(),q=o.body.rotation();o.mesh.position.set(t.x,t.y,t.z);o.mesh.quaternion.set(q.x,q.y,q.z,q.w)}
 function syncMeshes(){
-  for(const e of ents){if(!e.body||e.broken)continue;e.mesh.position.copy(e.body.position);e.mesh.quaternion.copy(e.body.quaternion)}
-  for(const b of balls){b.mesh.position.copy(b.body.position);b.mesh.quaternion.copy(b.body.quaternion)}
+  if(!world)return;
+  for(const e of ents){if(!e.body||e.broken)continue;const sl=e.body.isSleeping();if(sl&&e.synced)continue;syncOne(e);e.synced=sl}
+  for(const b of balls)syncOne(b);
 }
-function wakeNeighbours(){
-  const movers=[];
-  for(const e of ents){const b=e.body;if(!b||e.broken||b.sleepState===CANNON.Body.SLEEPING)continue;if(b.velocity.norm()>0.3||b.angularVelocity.norm()>0.8)movers.push(b.position)}
-  for(const bl of balls)movers.push(bl.body.position);
-  if(!movers.length)return;
-  for(const e of ents){const b=e.body;if(!b||e.broken||b.sleepState!==CANNON.Body.SLEEPING)continue;
-    for(const p of movers){if(Math.abs(p.x-b.position.x)<0.95&&Math.abs(p.y-b.position.y)<1.05&&Math.abs(p.z-b.position.z)<0.95){b.wakeUp();break}}}
-}
-function wakeNear(P){for(const e of ents){const b=e.body;if(!b||e.broken)continue;if(Math.abs(P.x-b.position.x)<1&&Math.abs(P.y-b.position.y)<1.1&&Math.abs(P.z-b.position.z)<1)b.wakeUp()}}
+/* when something is smashed, wake whatever was resting on or against it */
+function wakeNear(P){for(const e of ents){const b=e.body;if(!b||e.broken)continue;const t=b.translation();if(Math.abs(P.x-t.x)<1&&Math.abs(P.y-t.y)<1.1&&Math.abs(P.z-t.z)<1)b.wakeUp()}}
 function step(){
-  world.step(DT);
-  wakeNeighbours();
+  for(const e of ents){if(!e.body||e.broken)continue;e.pv=e.body.isSleeping()?ZERO:e.body.linvel()}
+  for(const b of balls)b.pv=b.body.linvel();
+  world.step(eventQ);
+  eventQ.drainCollisionEvents(onContact);
   if(breakQ.length){const q=breakQ;breakQ=[];q.forEach(smash)}
   if(crumbleQ.length){const q=crumbleQ;crumbleQ=[];q.forEach(crumble)}
   for(const t of targets){
-    if(t.broken)continue;const p=t.body.position;
+    if(t.broken||t.queued||t.body.isSleeping())continue;const p=t.body.translation();
     if(p.y<-3||Math.abs(p.x)>16||p.z>5||p.z<-40)queueBreak(t);
   }
   for(let i=balls.length-1;i>=0;i--){
-    const b=balls[i];b.age++;const sp=b.body.velocity.norm();
-    b.still=sp<.3?b.still+1:0;const p=b.body.position;
-    if(p.y<-5||Math.abs(p.x)>22||p.z<-45||b.still>120||b.age>720){if(p.y>-1)puff(V3(p.x,p.y,p.z),0xFFFFFF,1);rmBody(b.body);scene.remove(b.mesh);balls.splice(i,1)}
+    const b=balls[i];b.age++;const sp=vlen(b.body.linvel());
+    b.still=sp<.3?b.still+1:0;const p=b.body.translation();
+    if(p.y<-5||Math.abs(p.x)>22||p.z<-45||b.still>120||b.age>720){if(p.y>-1)puff(V3(p.x,p.y,p.z),0xFFFFFF,1);rmBody(b);scene.remove(b.mesh);balls.splice(i,1)}
   }
   if(cooldown>0)cooldown--;
   if(holding&&cooldown===0&&state==='play'&&!ended&&lastPointer){pointAt(lastPointer);fire()}
@@ -679,7 +695,7 @@ function step(){
   if(state!=='play'||ended)return;
   if(remaining<=0){if(endTimer<0)endTimer=100}
   else if(!infinite&&ballsLeft<=0&&balls.length===0){
-    let maxV=0;for(const e of ents)if(e.body&&!e.broken){const v=e.body.velocity.norm();if(v>maxV)maxV=v}
+    let maxV=0;for(const e of ents)if(e.body&&!e.broken&&!e.body.isSleeping()){const v=vlen(e.body.linvel());if(v>maxV)maxV=v}
     calmSteps=maxV<.2?calmSteps+1:0;
     if(calmSteps>150&&endTimer<0)endTimer=1;
   }
@@ -748,7 +764,7 @@ function frame(t){
   if(!last)last=t;const dt=Math.min(.1,(t-last)/1000);last=t;tNow=t/1000;
   if(state==='play'||state==='result'||state==='title'||state==='levels'){
     acc+=dt;let n=0;
-    if(state!=='menu')while(acc>=DT&&n<8){step();acc-=DT;n++}
+    if(state!=='menu'&&!testFreeze&&world)while(acc>=DT&&n<8){step();acc-=DT;n++}
     if(n===8)acc=0;
   }else acc=0;
   syncMeshes();updateFx(dt);aimBarrel();
@@ -823,6 +839,7 @@ $('btnMute').onclick=()=>{muted=!muted;audio();$('btnMute').textContent=muted?'S
 
 /* ---------- boot ---------- */
 function start(data){
+  $('btnPlay').disabled=false;$('btnPick').disabled=false;$('btnPlay').textContent='Play';
   resize();window.addEventListener('resize',resize);
   const lvl=data&&typeof data.level==='number'?data.level:0;
   loadLevel(lvl);
@@ -830,7 +847,25 @@ function start(data){
   requestAnimationFrame(frame);
 }
 if(window.claude?.hot?.snapshot)window.claude.hot.snapshot(()=>({level:cur,playing:state==='play'}));
-window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+function boot(data){
+  $('btnPlay').disabled=true;$('btnPick').disabled=true;$('btnPlay').textContent='Loading…';
+  import(RAPIER_URL).then(m=>{R=m.default&&m.default.World?m.default:m;return R.init()})
+    .then(()=>{eventQ=new R.EventQueue(true);start(data)})
+    .catch(err=>{console.error(err);$('btnPlay').textContent='Could not load. Check your internet and reopen.'});
+}
+/* hooks for the automatic physics check (tests/physics-check.mjs) */
+window.__tt={
+  ready:()=>!!(world&&R),
+  freeze:on=>{testFreeze=!!on},
+  play:(i,inf)=>{infinite=!!inf;startLevel(i)},
+  step:n=>{for(let k=0;k<n;k++)step()},
+  info:()=>({level:cur,state,ended,remaining,used,ballsLeft,
+    targets:targets.filter(t=>!t.broken).map(t=>{const p=t.body.translation();return[+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3)]})}),
+  fireAt:(x,y,z)=>{cooldown=0;aimP.set(x,y,z);shot=solve(aimP);fire()},
+  render:()=>{syncMeshes();renderer.render(scene,camera)},
+  levels:LEVELS.length
+};
+window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?.data??{});
 })();
 </script>
 
