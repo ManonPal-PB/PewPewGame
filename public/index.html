@@ -181,12 +181,6 @@ let R=null,eventQ=null,colMap=new Map(),testFreeze=false;
 const ZERO={x:0,y:0,z:0};
 const vlen=v=>Math.hypot(v.x,v.y,v.z);
 const RADIUS=0.29;
-/* Jars and tins: a 16-sided prism. Looks round, but flat ends stack without sliding. */
-let PRISM=null;
-function prismDesc(){
-  if(!PRISM){const n=16,pts=[];for(let i=0;i<n;i++){const a=i/n*Math.PI*2+Math.PI/n,x=Math.cos(a)*RADIUS,z=Math.sin(a)*RADIUS;pts.push(x,-HALF[1],z,x,HALF[1],z)}PRISM=new Float32Array(pts)}
-  return R.ColliderDesc.convexHull(PRISM)||R.ColliderDesc.cylinder(HALF[1],RADIUS);
-}
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
@@ -527,14 +521,14 @@ function loadLevel(i){
         const kind=ch==='J'?'jar':ch==='T'?'tin':'stone';
         const mesh=kind==='jar'?makeJar(tb.jar):kind==='tin'?makeTin(tb.tin):(()=>{const m=new THREE.Mesh(G.box,M.stone);m.scale.set(HALF[0]*2,HALF[1]*2,HALF[2]*2);m.castShadow=m.receiveShadow=true;return m})();
         const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
-          .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL)
-          .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true));
-        const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):prismDesc())
+          .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.0005,tb.z-dz*CELL)
+          .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true).setSleeping(true));
+        const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):R.ColliderDesc.cylinder(HALF[1],RADIUS))
           .setMass(kind==='jar'?0.5:kind==='tin'?0.35:0.8)
-          .setFriction(kind==='stone'?0.25:kind==='tin'?0.45:0.55).setRestitution(0.05)
+          .setFriction(kind==='stone'?0.25:0.85).setRestitution(0.03)
           .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
         const col=world.createCollider(cd,body);
-        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO,spawn:[x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL]};
+        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO,spawn:[x0+c*CELL,h+r*ROW+HALF[1]+0.0005,tb.z-dz*CELL]};
         if(kind!=='stone'){e.target=true;targets.push(e);remaining++}
         colMap.set(col.handle,e);
         pickables.add(mesh);ents.push(e);
@@ -543,11 +537,10 @@ function loadLevel(i){
   });
 
   settling=true;
-  /* settle with heavy damping so flat-on-flat contacts find their footing without sliding */
-  for(const e of ents)if(e.body){e.body.setLinearDamping(25);e.body.setAngularDamping(25)}
-  for(let k=0;k<120;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
-  for(const e of ents)if(e.body){e.body.setLinearDamping(0.05);e.body.setAngularDamping(e.kind==='stone'?0.2:0.35)}
-  for(const e of ents)if(e.body){e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);try{e.body.sleep()}catch(_){}e.synced=false}
+  /* stacks are built exactly touching and start asleep, so they load neat and still.
+     A couple of steps lets the engine register the resting contacts. */
+  for(let k=0;k<2;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
+  for(const e of ents)if(e.body){try{e.body.sleep()}catch(_){}e.synced=false}
   settling=false;
   syncMeshes();
   $('lvlName').textContent=`Level ${cur+1} · ${L.name}`;

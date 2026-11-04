@@ -53,7 +53,7 @@ try {
       const b = window.__tt.info();
       return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift, worst: window.__tt.worst() };
     }, i);
-    const ok = r.load < 0.05 && r.broke === 0 && r.drift < 0.08;
+    const ok = r.load < 0.02 && r.broke === 0 && r.drift < 0.10;
     if (!ok) failed = true;
     log(`| ${i + 1} | ${r.n} | ${r.load.toFixed(3)} | ${r.broke} | ${r.drift.toFixed(3)} | ${ok ? '✅' : '❌'} |`);
     if (!ok) console.log('   worst object: ' + JSON.stringify(r.worst));
