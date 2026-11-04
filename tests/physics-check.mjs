@@ -51,11 +51,12 @@ try {
       window.__tt.wakeAll();
       window.__tt.step(480);
       const b = window.__tt.info();
-      return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift };
+      return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift, worst: window.__tt.worst() };
     }, i);
     const ok = r.load < 0.05 && r.broke === 0 && r.drift < 0.08;
     if (!ok) failed = true;
     log(`| ${i + 1} | ${r.n} | ${r.load.toFixed(3)} | ${r.broke} | ${r.drift.toFixed(3)} | ${ok ? '✅' : '❌'} |`);
+    if (!ok) console.log('   worst object: ' + JSON.stringify(r.worst));
     if (i === 0 || i === 9 || i === 29) {
       await page.evaluate(() => window.__tt.render());
       await page.screenshot({ path: `${OUT}/level-${String(i + 1).padStart(2, '0')}-standing.png` });

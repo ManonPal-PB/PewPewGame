@@ -866,6 +866,11 @@ window.__tt={
     layoutDrift:Math.max(0,...ents.filter(e=>e.body&&!e.broken).map(e=>{const p=e.body.translation();return Math.hypot(p.x-e.spawn[0],p.y-e.spawn[1],p.z-e.spawn[2])})),
     awake:ents.filter(e=>e.body&&!e.broken&&!e.body.isSleeping()).length}),
   wakeAll:()=>{for(const e of ents)if(e.body&&!e.broken)e.body.wakeUp()},
+  worst:()=>{let w=null,m=-1;for(const e of ents){if(!e.body||e.broken)continue;const p=e.body.translation(),q=e.body.rotation();
+    const d=Math.hypot(p.x-e.spawn[0],p.y-e.spawn[1],p.z-e.spawn[2]);
+    if(d>m){m=d;const up=V3(0,1,0).applyQuaternion(new THREE.Quaternion(q.x,q.y,q.z,q.w));
+      w={kind:e.kind,spawn:e.spawn.map(v=>+v.toFixed(2)),dx:+(p.x-e.spawn[0]).toFixed(3),dy:+(p.y-e.spawn[1]).toFixed(3),dz:+(p.z-e.spawn[2]).toFixed(3),tiltDeg:+(Math.acos(Math.min(1,Math.abs(up.y)))*57.3).toFixed(1)}}}
+    return w},
   fireAt:(x,y,z)=>{cooldown=0;aimP.set(x,y,z);shot=solve(aimP);fire()},
   render:()=>{syncMeshes();renderer.render(scene,camera)},
   levels:LEVELS.length
