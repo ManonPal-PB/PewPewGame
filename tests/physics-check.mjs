@@ -70,9 +70,9 @@ try {
   log('\n## Clearing levels with aimed shots (infinite balls)\n');
   log('| Level | Targets | Ball allowance | Top shooter needed | Low shooter needed | Cleared? |');
   log('|---|---|---|---|---|---|');
-  for (const i of [0, 1, 2, 3, 5, 8, 9, 12, 17, 26, 29]) {
+  for (let i = 0; i < levelCount; i++) {
     const res = {};
-    for (const mode of ['top', 'low']) {
+    for (const mode of (process.env.ALL_SHOOTERS || [0, 9, 29].includes(i)) ? ['top', 'low'] : ['low']) {
       res[mode] = await page.evaluate(([i, mode]) => {
         window.__tt.play(i, true);
         const start = window.__tt.info().remaining;
@@ -100,10 +100,10 @@ try {
         return { start, shots, allow: end.balls, remaining: end.remaining };
       }, [i, mode]);
     }
-    const ok = res.top.remaining === 0 && res.low.remaining === 0;
+    const ok = (!res.top || res.top.remaining === 0) && res.low.remaining === 0;
     if (!ok) failed = true;
     const cell = r => r.remaining === 0 ? String(r.shots) : `${r.shots} (${r.remaining} left)`;
-    log(`| ${i + 1} | ${res.low.start} | ${res.low.allow} | ${cell(res.top)} | ${cell(res.low)} | ${ok ? '✅' : '❌'} |`);
+    log(`| ${i + 1} | ${res.low.start} | ${res.low.allow} | ${res.top ? cell(res.top) : '–'} | ${cell(res.low)} | ${ok ? '✅' : '❌'}${res.low.remaining === 0 && res.low.shots > res.low.allow ? ' (needs more balls)' : ''} |`);
     if (i === 0) {
       await page.evaluate(() => window.__tt.render());
       await page.screenshot({ path: `${OUT}/level-01-after-shots.png` });
@@ -115,6 +115,19 @@ try {
   await page.screenshot({ path: `${OUT}/level-10-impact.png` });
 } catch (e) {
   fail('Check crashed: ' + e.message);
+}
+
+// print two small screenshots into the log (base64 JPEG), for viewing without artifacts
+for (const [name, setup] of [['level10-standing', () => { window.__tt.play(9, false); window.__tt.render(); }],
+                             ['level10-impact', () => { window.__tt.play(9, true); window.__tt.fireAt(-1.9, 2.5, -8); window.__tt.step(36); window.__tt.render(); }]]) {
+  try {
+    await page.evaluate(setup);
+    const buf = await page.screenshot({ type: 'jpeg', quality: 55, scale: 'css' });
+    const b64 = buf.toString('base64');
+    console.log(`SHOT-BEGIN ${name}`);
+    for (let k = 0; k < b64.length; k += 4000) console.log('SHOT ' + b64.slice(k, k + 4000));
+    console.log(`SHOT-END ${name}`);
+  } catch (e) { console.log('screenshot failed: ' + e.message); }
 }
 
 if (errors.length) { log('\n## Browser errors\n'); errors.slice(0, 20).forEach(e => log('- ' + e)); }
