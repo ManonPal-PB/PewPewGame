@@ -521,14 +521,14 @@ function loadLevel(i){
         const kind=ch==='J'?'jar':ch==='T'?'tin':'stone';
         const mesh=kind==='jar'?makeJar(tb.jar):kind==='tin'?makeTin(tb.tin):(()=>{const m=new THREE.Mesh(G.box,M.stone);m.scale.set(HALF[0]*2,HALF[1]*2,HALF[2]*2);m.castShadow=m.receiveShadow=true;return m})();
         const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
-          .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.0005,tb.z-dz*CELL)
+          .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL)
           .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true));
         const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):R.ColliderDesc.cylinder(HALF[1],RADIUS))
           .setMass(kind==='jar'?0.5:kind==='tin'?0.35:0.8)
           .setFriction(kind==='stone'?0.25:0.85).setRestitution(0.03)
           .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
         const col=world.createCollider(cd,body);
-        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO,spawn:[x0+c*CELL,h+r*ROW+HALF[1]+0.0005,tb.z-dz*CELL]};
+        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO,spawn:[x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL]};
         if(kind!=='stone'){e.target=true;targets.push(e);remaining++}
         colMap.set(col.handle,e);
         pickables.add(mesh);ents.push(e);
@@ -537,9 +537,16 @@ function loadLevel(i){
   });
 
   settling=true;
-  /* stacks are built exactly touching with plenty of grip; let them settle briefly, then put them to sleep */
+  /* let stacks settle onto each other, then put every object back on its designed spot
+     (keeping the height it settled at), stand it upright and put it to sleep, so levels load neat */
   for(let k=0;k<90;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
-  for(const e of ents)if(e.body){e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);try{e.body.sleep()}catch(_){}e.synced=false}
+  for(const e of ents)if(e.body){
+    const t=e.body.translation();
+    e.body.setTranslation({x:e.spawn[0],y:t.y,z:e.spawn[2]},false);
+    e.body.setRotation({x:0,y:0,z:0,w:1},false);
+    e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);
+    try{e.body.sleep()}catch(_){}e.synced=false;
+  }
   settling=false;
   syncMeshes();
   $('lvlName').textContent=`Level ${cur+1} · ${L.name}`;
