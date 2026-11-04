@@ -522,7 +522,7 @@ function loadLevel(i){
         const mesh=kind==='jar'?makeJar(tb.jar):kind==='tin'?makeTin(tb.tin):(()=>{const m=new THREE.Mesh(G.box,M.stone);m.scale.set(HALF[0]*2,HALF[1]*2,HALF[2]*2);m.castShadow=m.receiveShadow=true;return m})();
         const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
           .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.0005,tb.z-dz*CELL)
-          .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true).setSleeping(true));
+          .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true));
         const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):R.ColliderDesc.cylinder(HALF[1],RADIUS))
           .setMass(kind==='jar'?0.5:kind==='tin'?0.35:0.8)
           .setFriction(kind==='stone'?0.25:0.85).setRestitution(0.03)
@@ -537,10 +537,9 @@ function loadLevel(i){
   });
 
   settling=true;
-  /* stacks are built exactly touching and start asleep, so they load neat and still.
-     A couple of steps lets the engine register the resting contacts. */
-  for(let k=0;k<2;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
-  for(const e of ents)if(e.body){try{e.body.sleep()}catch(_){}e.synced=false}
+  /* stacks are built exactly touching with plenty of grip; let them settle briefly, then put them to sleep */
+  for(let k=0;k<90;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
+  for(const e of ents)if(e.body){e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);try{e.body.sleep()}catch(_){}e.synced=false}
   settling=false;
   syncMeshes();
   $('lvlName').textContent=`Level ${cur+1} · ${L.name}`;
