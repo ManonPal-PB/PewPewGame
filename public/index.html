@@ -497,7 +497,7 @@ function loadLevel(i){
   const fixedBox=(x,y,z,hx,hy,hz,fr,tag)=>{const b=world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(x,y,z));const c=world.createCollider(R.ColliderDesc.cuboid(hx,hy,hz).setFriction(fr).setRestitution(0.02),b);colMap.set(c.handle,{kind:tag});return b};
   fixedBox(0,-0.5,-15,60,0.5,60,0.9,'floor');
 
-  ballsMax=L.balls;ballsLeft=ballsMax;used=0;remaining=0;crumbleQ=[];
+  ballsMax=L.balls;ballsLeft=ballsMax;used=0;remaining=0;crumbleQ=[];lostLog=[];
   calmSteps=0;endTimer=-1;ended=false;combo=0;comboTimer=0;cooldown=0;
 
   L.tables.forEach(tb=>{
@@ -564,17 +564,18 @@ function onContact(h1,h2,started){
 function onHit(e,o,iv){
   if(!e.body||e.broken||e.queued)return;
   if(e.kind==='jar'){
-    if(o.kind==='floor'||(o.kind==='ball'&&iv>1.5)||iv>3.6)queueBreak(e);
+    if(o.kind==='floor')queueBreak(e,'floor');else if(o.kind==='ball'&&iv>1.5)queueBreak(e,'ball');else if(iv>3.6)queueBreak(e,'impact '+iv.toFixed(1)+' vs '+o.kind);
     else if(iv>1.2)sfx.clank(.5);
   }else if(e.kind==='tin'){
-    if(o.kind==='floor')queueBreak(e);
+    if(o.kind==='floor')queueBreak(e,'floor');
     else if(iv>1.2)sfx.clank(Math.min(1,iv/5));
   }else if(e.kind==='stone'){
     if(o.kind==='floor'&&!e.crumbled&&e.body.translation().y<1){e.crumbled=true;crumbleQ.push(e)}
     else if(iv>2)sfx.thud(Math.min(1,iv/7));
   }
 }
-function queueBreak(e){if(!e.queued){e.queued=true;breakQ.push(e)}}
+let lostLog=[];
+function queueBreak(e,why){if(!e.queued){e.queued=true;breakQ.push(e);if(lostLog.length<20){const p=e.body.translation();lostLog.push({kind:e.kind,why:why||'?',spawn:e.spawn&&e.spawn.map(v=>+v.toFixed(2)),at:[+p.x.toFixed(2),+p.y.toFixed(2),+p.z.toFixed(2)]})}}}
 
 function spawn(o,props){if(fx.length>480){scene.remove(o);return}o.renderOrder=5;scene.add(o);fx.push(Object.assign({o},props))}
 function smash(e){
@@ -684,7 +685,7 @@ function step(){
   if(crumbleQ.length){const q=crumbleQ;crumbleQ=[];q.forEach(crumble)}
   for(const t of targets){
     if(t.broken||t.queued||t.body.isSleeping())continue;const p=t.body.translation();
-    if(p.y<-3||Math.abs(p.x)>16||p.z>5||p.z<-40)queueBreak(t);
+    if(p.y<-3||Math.abs(p.x)>16||p.z>5||p.z<-40)queueBreak(t,'out of bounds');
   }
   for(let i=balls.length-1;i>=0;i--){
     const b=balls[i];b.age++;const sp=vlen(b.body.linvel());
@@ -867,6 +868,7 @@ window.__tt={
     /* how far each standing object (targets and stones) is from where the level design put it */
     layoutDrift:Math.max(0,...ents.filter(e=>e.body&&!e.broken).map(e=>{const p=e.body.translation();return Math.hypot(p.x-e.spawn[0],p.y-e.spawn[1],p.z-e.spawn[2])})),
     awake:ents.filter(e=>e.body&&!e.broken&&!e.body.isSleeping()).length}),
+  lost:()=>lostLog,
   wakeAll:()=>{for(const e of ents)if(e.body&&!e.broken)e.body.wakeUp()},
   worst:()=>{let w=null,m=-1;for(const e of ents){if(!e.body||e.broken)continue;const p=e.body.translation(),q=e.body.rotation();
     const d=Math.hypot(p.x-e.spawn[0],p.y-e.spawn[1],p.z-e.spawn[2]);
