@@ -1,5 +1,5 @@
 // Topple Town offline cache. Bump VERSION whenever index.html changes.
-const VERSION='topple-town-v6';
+const VERSION='topple-town-v7';
 const CORE=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js'];
