@@ -181,6 +181,12 @@ let R=null,eventQ=null,colMap=new Map(),testFreeze=false;
 const ZERO={x:0,y:0,z:0};
 const vlen=v=>Math.hypot(v.x,v.y,v.z);
 const RADIUS=0.29;
+/* Jars and tins: a 16-sided prism. Looks round, but flat ends stack without sliding. */
+let PRISM=null;
+function prismDesc(){
+  if(!PRISM){const n=16,pts=[];for(let i=0;i<n;i++){const a=i/n*Math.PI*2+Math.PI/n,x=Math.cos(a)*RADIUS,z=Math.sin(a)*RADIUS;pts.push(x,-HALF[1],z,x,HALF[1],z)}PRISM=new Float32Array(pts)}
+  return R.ColliderDesc.convexHull(PRISM)||R.ColliderDesc.cylinder(HALF[1],RADIUS);
+}
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
@@ -523,7 +529,7 @@ function loadLevel(i){
         const body=world.createRigidBody(R.RigidBodyDesc.dynamic()
           .setTranslation(x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL)
           .setLinearDamping(0.05).setAngularDamping(kind==='stone'?0.2:0.35).setCanSleep(true));
-        const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):R.ColliderDesc.cylinder(HALF[1],RADIUS))
+        const cd=(kind==='stone'?R.ColliderDesc.cuboid(HALF[0],HALF[1],HALF[2]):prismDesc())
           .setMass(kind==='jar'?0.5:kind==='tin'?0.35:0.8)
           .setFriction(kind==='stone'?0.25:kind==='tin'?0.45:0.55).setRestitution(0.05)
           .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
