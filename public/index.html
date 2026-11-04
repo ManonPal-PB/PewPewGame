@@ -537,7 +537,10 @@ function loadLevel(i){
   });
 
   settling=true;
+  /* settle with heavy damping so flat-on-flat contacts find their footing without sliding */
+  for(const e of ents)if(e.body){e.body.setLinearDamping(25);e.body.setAngularDamping(25)}
   for(let k=0;k<120;k++){world.step(eventQ);eventQ.drainCollisionEvents(()=>{})}
+  for(const e of ents)if(e.body){e.body.setLinearDamping(0.05);e.body.setAngularDamping(e.kind==='stone'?0.2:0.35)}
   for(const e of ents)if(e.body){e.body.setLinvel(ZERO,false);e.body.setAngvel(ZERO,false);try{e.body.sleep()}catch(_){}e.synced=false}
   settling=false;
   syncMeshes();

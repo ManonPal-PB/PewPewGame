@@ -63,32 +63,46 @@ try {
     }
   }
 
-  // 2. Sample levels: aim at the highest standing target until the level is cleared.
+  // 2. Sample levels: can aimed shots clear them, and how many balls does it take?
+  //    "Top shooter" aims at the highest target (simple, wasteful).
+  //    "Low shooter" aims at the lowest target on the fullest table, like a person knocking walls over.
   log('\n## Clearing levels with aimed shots (infinite balls)\n');
-  log('| Level | Targets | Ball allowance | Shots the test needed | Cleared? |');
-  log('|---|---|---|---|---|');
-  for (const i of [0, 1, 3, 5, 9, 17, 29]) {
-    const r = await page.evaluate(i => {
-      window.__tt.play(i, true);
-      const start = window.__tt.info().remaining;
-      let shots = 0;
-      while (shots < 120) {
-        const info = window.__tt.info();
-        if (info.remaining <= 0) break;
-        // aim at the target that is highest, then nearest the middle
-        const t = info.targets.slice().sort((a, b) => b[1] - a[1] || Math.abs(a[0]) - Math.abs(b[0]))[0];
-        if (!t) break;
-        window.__tt.fireAt(t[0], t[1], t[2]);
-        shots++;
-        window.__tt.step(90);
-      }
-      window.__tt.step(240);
-      const end = window.__tt.info();
-      return { start, shots, allow: end.balls, remaining: end.remaining, state: end.state, ended: end.ended };
-    }, i);
-    const ok = r.remaining === 0;
+  log('| Level | Targets | Ball allowance | Top shooter needed | Low shooter needed | Cleared? |');
+  log('|---|---|---|---|---|---|');
+  for (const i of [0, 1, 2, 3, 5, 8, 9, 12, 17, 26, 29]) {
+    const res = {};
+    for (const mode of ['top', 'low']) {
+      res[mode] = await page.evaluate(([i, mode]) => {
+        window.__tt.play(i, true);
+        const start = window.__tt.info().remaining;
+        let shots = 0;
+        while (shots < 150) {
+          const info = window.__tt.info();
+          if (info.remaining <= 0) break;
+          let t;
+          if (mode === 'top') t = info.targets.slice().sort((a, b) => b[1] - a[1] || Math.abs(a[0]) - Math.abs(b[0]))[0];
+          else {
+            // group by table (x position bands), pick the fullest, aim at its lowest target nearest the middle
+            const groups = {};
+            info.targets.forEach(p => { const k = Math.round(p[0] / 1.5); (groups[k] = groups[k] || []).push(p); });
+            const g = Object.values(groups).sort((a, b) => b.length - a.length)[0];
+            const cx = g.reduce((s, p) => s + p[0], 0) / g.length;
+            t = g.slice().sort((a, b) => a[1] - b[1] || Math.abs(a[0] - cx) - Math.abs(b[0] - cx))[0];
+          }
+          if (!t) break;
+          window.__tt.fireAt(t[0], t[1], t[2]);
+          shots++;
+          window.__tt.step(90);
+        }
+        window.__tt.step(240);
+        const end = window.__tt.info();
+        return { start, shots, allow: end.balls, remaining: end.remaining };
+      }, [i, mode]);
+    }
+    const ok = res.top.remaining === 0 && res.low.remaining === 0;
     if (!ok) failed = true;
-    log(`| ${i + 1} | ${r.start} | ${r.allow} | ${r.shots} | ${ok ? '✅' : `❌ ${r.remaining} left`} |`);
+    const cell = r => r.remaining === 0 ? String(r.shots) : `${r.shots} (${r.remaining} left)`;
+    log(`| ${i + 1} | ${res.low.start} | ${res.low.allow} | ${cell(res.top)} | ${cell(res.low)} | ${ok ? '✅' : '❌'} |`);
     if (i === 0) {
       await page.evaluate(() => window.__tt.render());
       await page.screenshot({ path: `${OUT}/level-01-after-shots.png` });
