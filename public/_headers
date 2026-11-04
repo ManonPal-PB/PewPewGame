@@ -1,0 +1,16 @@
+# The page, the offline worker and the app manifest are always re-checked,
+# so a new deploy reaches the phones the next time they open the game online.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+/manifest.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json
+
+# Icons rarely change
+/icon-*.png
+  Cache-Control: public, max-age=604800
