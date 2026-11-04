@@ -37,26 +37,25 @@ try {
 
   const levelCount = await page.evaluate(() => window.__tt.levels);
 
-  // 1. Every level: stacks must stand still for 4 seconds with nobody touching them.
-  log('\n## Stacks standing still (4 seconds, no shots)\n');
-  log('| Level | Targets | Broke by themselves | Biggest drift (m) | Result |');
-  log('|---|---|---|---|---|');
+  // 1. Every level, two tests:
+  //    a) after loading, every object is still where the level design put it
+  //    b) wake every object and leave it alone for 4 seconds (this is what happens
+  //       when the first ball touches a wall): nothing may slide, topple or break
+  log('\n## Stacks standing still\n');
+  log('| Level | Targets | Off-layout after load (m) | Broke while awake | Drift while awake (m) | Result |');
+  log('|---|---|---|---|---|---|');
   for (let i = 0; i < levelCount; i++) {
     const r = await page.evaluate(i => {
       window.__tt.play(i, false);
       const a = window.__tt.info();
+      window.__tt.wakeAll();
       window.__tt.step(480);
       const b = window.__tt.info();
-      let drift = 0;
-      // targets are listed in the same order; compare the ones still standing
-      if (a.targets.length === b.targets.length)
-        a.targets.forEach((p, k) => { const q = b.targets[k]; drift = Math.max(drift, Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])); });
-      else drift = -1;
-      return { n: a.remaining, broke: a.remaining - b.remaining, drift };
+      return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift };
     }, i);
-    const ok = r.broke === 0 && r.drift >= 0 && r.drift < 0.08;
+    const ok = r.load < 0.05 && r.broke === 0 && r.drift < 0.08;
     if (!ok) failed = true;
-    log(`| ${i + 1} | ${r.n} | ${r.broke} | ${r.drift < 0 ? 'n/a' : r.drift.toFixed(3)} | ${ok ? '✅' : '❌'} |`);
+    log(`| ${i + 1} | ${r.n} | ${r.load.toFixed(3)} | ${r.broke} | ${r.drift.toFixed(3)} | ${ok ? '✅' : '❌'} |`);
     if (i === 0 || i === 9 || i === 29) {
       await page.evaluate(() => window.__tt.render());
       await page.screenshot({ path: `${OUT}/level-${String(i + 1).padStart(2, '0')}-standing.png` });
@@ -65,8 +64,8 @@ try {
 
   // 2. Sample levels: aim at the highest standing target until the level is cleared.
   log('\n## Clearing levels with aimed shots (infinite balls)\n');
-  log('| Level | Targets | Shots to clear | Cleared? |');
-  log('|---|---|---|---|');
+  log('| Level | Targets | Ball allowance | Shots the test needed | Cleared? |');
+  log('|---|---|---|---|---|');
   for (const i of [0, 1, 3, 5, 9, 17, 29]) {
     const r = await page.evaluate(i => {
       window.__tt.play(i, true);
@@ -84,11 +83,11 @@ try {
       }
       window.__tt.step(240);
       const end = window.__tt.info();
-      return { start, shots, remaining: end.remaining, state: end.state, ended: end.ended };
+      return { start, shots, allow: end.balls, remaining: end.remaining, state: end.state, ended: end.ended };
     }, i);
     const ok = r.remaining === 0;
     if (!ok) failed = true;
-    log(`| ${i + 1} | ${r.start} | ${r.shots} | ${ok ? '✅' : `❌ ${r.remaining} left`} |`);
+    log(`| ${i + 1} | ${r.start} | ${r.allow} | ${r.shots} | ${ok ? '✅' : `❌ ${r.remaining} left`} |`);
     if (i === 0) {
       await page.evaluate(() => window.__tt.render());
       await page.screenshot({ path: `${OUT}/level-01-after-shots.png` });

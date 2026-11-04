@@ -528,7 +528,7 @@ function loadLevel(i){
           .setFriction(kind==='stone'?0.25:kind==='tin'?0.45:0.55).setRestitution(0.05)
           .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
         const col=world.createCollider(cd,body);
-        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO};
+        const e={mesh,body,col,kind,jam:tb.jar,broken:false,pv:ZERO,spawn:[x0+c*CELL,h+r*ROW+HALF[1]+0.003,tb.z-dz*CELL]};
         if(kind!=='stone'){e.target=true;targets.push(e);remaining++}
         colMap.set(col.handle,e);
         pickables.add(mesh);ents.push(e);
@@ -860,7 +860,12 @@ window.__tt={
   play:(i,inf)=>{infinite=!!inf;startLevel(i)},
   step:n=>{for(let k=0;k<n;k++)step()},
   info:()=>({level:cur,state,ended,remaining,used,ballsLeft,
-    targets:targets.filter(t=>!t.broken).map(t=>{const p=t.body.translation();return[+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3)]})}),
+    balls:LEVELS[cur].balls,
+    targets:targets.filter(t=>!t.broken).map(t=>{const p=t.body.translation();return[+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3)]}),
+    /* how far each standing object (targets and stones) is from where the level design put it */
+    layoutDrift:Math.max(0,...ents.filter(e=>e.body&&!e.broken).map(e=>{const p=e.body.translation();return Math.hypot(p.x-e.spawn[0],p.y-e.spawn[1],p.z-e.spawn[2])})),
+    awake:ents.filter(e=>e.body&&!e.broken&&!e.body.isSleeping()).length}),
+  wakeAll:()=>{for(const e of ents)if(e.body&&!e.broken)e.body.wakeUp()},
   fireAt:(x,y,z)=>{cooldown=0;aimP.set(x,y,z);shot=solve(aimP);fire()},
   render:()=>{syncMeshes();renderer.render(scene,camera)},
   levels:LEVELS.length
