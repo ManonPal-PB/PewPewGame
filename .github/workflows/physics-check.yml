@@ -5,7 +5,7 @@ name: Physics check
 
 on:
   push:
-    branches: [rapier-physics, main]
+    branches: ['**']
     paths: ['public/**', 'tests/**', '.github/workflows/physics-check.yml']
   workflow_dispatch:
 
