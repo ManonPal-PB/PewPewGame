@@ -553,7 +553,7 @@ const jamFx=(function(){
     constructor(geo,mat,cap,opt){opt=opt||{};this.im=new THREE.InstancedMesh(geo,mat,cap);this.im.frustumCulled=false;this.im.castShadow=!!opt.shadow;this.im.receiveShadow=!!opt.receive;this.im.renderOrder=opt.order||0;
       this.free=[];this.cap=cap;for(let i=cap-1;i>=0;i--){this.free.push(i);this.im.setMatrixAt(i,HIDE)}
       if(opt.color&&this.im.setColorAt){cA.set(0xffffff);for(let i=0;i<cap;i++)this.im.setColorAt(i,cA)}
-      this.live=[];scene.add(this.im);this.dirty=true}
+      this.live=[];this.im.visible=false;scene.add(this.im);this.dirty=true}
     /* when full, recycle the oldest one still showing */
     alloc(){if(!this.free.length){const old=this.live.shift();if(old){old.dead=true;this.free.push(old.i)}}return this.free.pop()}
     put(i,pos,quat,sx,sy,sz){vA.set(sx,sy,sz);mA.compose(pos,quat,vA);this.im.setMatrixAt(i,mA);this.dirty=true}

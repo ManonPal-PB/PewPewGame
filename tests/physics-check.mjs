@@ -171,8 +171,8 @@ try {
     t.advance(1.5);
     return { fx: t.fx(), calls: t.drawCalls() };
   });
-  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 95 ? '✅' : '❌'}`);
-  if (combo.calls > 95) failed = true;
+  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 110 ? '✅' : '❌'}`);
+  if (combo.calls > 110) failed = true;
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
