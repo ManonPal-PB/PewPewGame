@@ -139,17 +139,47 @@ try {
   fail('Check crashed: ' + e.message);
 }
 
-// print two small screenshots into the log (base64 JPEG), for viewing without artifacts
-for (const [name, setup] of [['level10-standing', () => { window.__tt.play(9, false); window.__tt.render(); }],
-                             ['level10-impact', () => { window.__tt.play(9, true); window.__tt.fireAt(-1.9, 2.5, -8); window.__tt.step(36); window.__tt.render(); }]]) {
-  try {
-    await page.evaluate(setup);
-    const buf = await page.screenshot({ type: 'jpeg', quality: 55, scale: 'css' });
-    const b64 = buf.toString('base64');
-    console.log(`SHOT-BEGIN ${name}`);
-    for (let k = 0; k < b64.length; k += 4000) console.log('SHOT ' + b64.slice(k, k + 4000));
-    console.log(`SHOT-END ${name}`);
-  } catch (e) { console.log('screenshot failed: ' + e.message); }
+// Jam effects with the game running in real time, plus screenshots printed into the log (base64 JPEG)
+const shots = [];
+async function grab(name) {
+  const buf = await page.screenshot({ type: 'jpeg', quality: 60, scale: 'css' });
+  shots.push([name, buf.toString('base64')]);
+}
+try {
+  log('\n## Jam effects\n');
+  await page.evaluate(() => { window.__tt.play(0, true); window.__tt.freeze(false); });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__tt.fireAt(-0.3, 1.66, -8));
+  // wait for the smash, then catch the splash mid-air
+  await page.waitForFunction(() => window.__tt.info().remaining < 8, null, { timeout: 5000 });
+  await page.waitForTimeout(110);
+  const mid = await page.evaluate(() => ({ fx: window.__tt.fx(), calls: window.__tt.drawCalls() }));
+  await grab('jam-splash');
+  await page.waitForTimeout(2600);
+  const after = await page.evaluate(() => window.__tt.fx());
+  await grab('jam-after');
+  log(`- Mid-splash: ${mid.fx.drops} droplets, ${mid.fx.glass} glass shards, ${mid.calls} draw calls`);
+  log(`- After 2.6 s: ${after.splats} splats, ${after.spots} spots, ${after.drips} drips still running, ${after.drops} droplets in the air`);
+  const ok = mid.fx.drops >= 20 && after.splats >= 1 && after.spots >= 5 && mid.calls <= 95;
+  if (!ok) failed = true;
+  log(`- ${ok ? '✅' : '❌'} splash, splat and spots appear; draw calls stay low`);
+
+  // a combo on a big wall
+  await page.evaluate(() => { window.__tt.play(3, true); });
+  await page.waitForTimeout(300);
+  for (const x of [-2.1, -1.5, 1.5, 2.1, -1.8]) { await page.evaluate(x => window.__tt.fireAt(x, 1.66, -8), x); await page.waitForTimeout(350); }
+  await page.waitForTimeout(1500);
+  const combo = await page.evaluate(() => ({ fx: window.__tt.fx(), calls: window.__tt.drawCalls() }));
+  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 95 ? '✅' : '❌'}`);
+  if (combo.calls > 95) failed = true;
+  await grab('jam-combo');
+  await page.evaluate(() => window.__tt.freeze(true));
+} catch (e) { fail('Jam effects check crashed: ' + e.message); }
+
+for (const [name, b64] of shots) {
+  console.log(`SHOT-BEGIN ${name}`);
+  for (let k = 0; k < b64.length; k += 4000) console.log('SHOT ' + b64.slice(k, k + 4000));
+  console.log(`SHOT-END ${name}`);
 }
 
 if (errors.length) { log('\n## Browser errors\n'); errors.slice(0, 20).forEach(e => log('- ' + e)); }

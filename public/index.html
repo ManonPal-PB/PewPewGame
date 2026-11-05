@@ -518,12 +518,125 @@ function pooled(key,make){
   return o;
 }
 function release(o){o.visible=false;(pools[o.userData.pool]||(pools[o.userData.pool]=[])).push(o)}
+/* ---------- Juicy jam: splashes, splats, drips and glass ----------
+   Everything here is drawn in batches (one draw per kind), so even a big combo stays cheap. */
+const jamFx=(function(){
+  const UP=new THREE.Vector3(0,1,0),mA=new THREE.Matrix4(),vA=new THREE.Vector3(),vB=new THREE.Vector3(),qA=new THREE.Quaternion(),qB=new THREE.Quaternion(),eA=new THREE.Euler(),cA=new THREE.Color();
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  /* splat shapes: an irregular blob with spikes and flecks, drawn white so each splat can be tinted its jam colour */
+  function splatTex(seed){return canvasTex(128,128,g=>{const r=rng(seed);g.fillStyle='#fff';const cx=64,cy=64;
+    g.beginPath();const n=36,ph=r()*6;for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,rad=22+r()*7+Math.sin(a*3+ph)*4+Math.sin(a*5+ph*2)*2;const x=cx+Math.cos(a)*rad,y=cy+Math.sin(a)*rad;i?g.lineTo(x,y):g.moveTo(x,y)}g.fill();
+    const spikes=7+Math.floor(r()*5);for(let k=0;k<spikes;k++){const a=r()*Math.PI*2,len=30+r()*26,w=3+r()*5;const ex=cx+Math.cos(a)*len,ey=cy+Math.sin(a)*len,nx=-Math.sin(a),ny=Math.cos(a);
+      g.beginPath();g.moveTo(cx+nx*w*1.6,cy+ny*w*1.6);g.lineTo(ex+nx*w*.5,ey+ny*w*.5);g.lineTo(ex-nx*w*.5,ey-ny*w*.5);g.lineTo(cx-nx*w*1.6,cy-ny*w*1.6);g.fill();
+      g.beginPath();g.arc(ex,ey,w*.85,0,7);g.fill()}
+    const dots=9+Math.floor(r()*7);for(let k=0;k<dots;k++){const a=r()*Math.PI*2,d=38+r()*22;g.beginPath();g.arc(cx+Math.cos(a)*d,cy+Math.sin(a)*d,1.2+r()*3.6,0,7);g.fill()}})}
+  function spotTex(){return canvasTex(64,64,g=>{const r=rng(7);g.fillStyle='#fff';g.beginPath();const n=24;for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,rad=22+r()*5;const x=32+Math.cos(a)*rad,y=32+Math.sin(a)*rad;i?g.lineTo(x,y):g.moveTo(x,y)}g.fill()})}
+  function dripTex(){return canvasTex(32,128,g=>{g.fillStyle='#fff';g.beginPath();g.moveTo(4,0);g.lineTo(28,0);g.quadraticCurveTo(22,40,21,96);g.lineTo(11,96);g.quadraticCurveTo(10,40,4,0);g.fill();g.beginPath();g.arc(16,104,9,0,7);g.fill()})}
+
+  class Bank{
+    constructor(geo,mat,cap,opt){opt=opt||{};this.im=new THREE.InstancedMesh(geo,mat,cap);this.im.frustumCulled=false;this.im.castShadow=!!opt.shadow;this.im.receiveShadow=!!opt.receive;this.im.renderOrder=opt.order||0;
+      this.free=[];this.cap=cap;for(let i=cap-1;i>=0;i--){this.free.push(i);this.im.setMatrixAt(i,HIDE)}
+      if(opt.color&&this.im.setColorAt){cA.set(0xffffff);for(let i=0;i<cap;i++)this.im.setColorAt(i,cA)}
+      this.live=[];scene.add(this.im);this.dirty=true}
+    /* when full, recycle the oldest one still showing */
+    alloc(){if(!this.free.length){const old=this.live.shift();if(old){old.dead=true;this.free.push(old.i)}}return this.free.pop()}
+    put(i,pos,quat,sx,sy,sz){vA.set(sx,sy,sz);mA.compose(pos,quat,vA);this.im.setMatrixAt(i,mA);this.dirty=true}
+    tint(i,hex,k){if(this.im.setColorAt){cA.set(hex);if(k)cA.multiplyScalar(k);this.im.setColorAt(i,cA);this.im.instanceColor.needsUpdate=true}}
+    kill(o){if(o.dead)return;o.dead=true;const j=this.live.indexOf(o);if(j>=0)this.live.splice(j,1);this.im.setMatrixAt(o.i,HIDE);this.free.push(o.i);this.dirty=true}
+    clear(){for(const o of this.live){o.dead=true;this.im.setMatrixAt(o.i,HIDE);this.free.push(o.i)}this.live=[];this.dirty=true}
+    flush(){if(this.dirty){this.im.instanceMatrix.needsUpdate=true;this.dirty=false}}
+  }
+  const decalMat=tex=>new THREE.MeshPhongMaterial({map:tex,transparent:true,alphaTest:0.05,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,shininess:90,specular:0x777777});
+  const flat=new THREE.PlaneGeometry(1,1);flat.rotateX(-Math.PI/2);
+  const hang=new THREE.PlaneGeometry(1,1);hang.translate(0,-0.5,0);
+  const tri=new THREE.BufferGeometry();tri.setAttribute('position',new THREE.Float32BufferAttribute([-0.5,-0.4,0,0.55,-0.3,0,0.05,0.6,0],3));tri.computeVertexNormals();
+  const dropGeo=new THREE.SphereGeometry(0.07,10,8);
+  const splatBanks=[11,23,37,51].map(sd=>new Bank(flat,decalMat(splatTex(sd)),60,{color:true,receive:true,order:1}));
+  const spotBank=new Bank(flat,decalMat(spotTex()),320,{color:true,receive:true,order:1});
+  const dripBank=new Bank(hang,decalMat(dripTex()),60,{color:true,order:1});
+  const dropBank=new Bank(dropGeo,new THREE.MeshPhongMaterial({shininess:140,specular:0xffffff}),420,{color:true,shadow:true});
+  const glassBank=new Bank(tri,new THREE.MeshPhongMaterial({color:0xEAF7FF,transparent:true,opacity:.6,shininess:220,specular:0xffffff,side:THREE.DoubleSide,depthWrite:false}),220,{order:2});
+  const banks=[...splatBanks,spotBank,dripBank,dropBank,glassBank];
+  const grow=[],drops=[],drips=[],glass=[];
+  const easeBack=t=>{const c=1.6;t=Math.min(1,t);return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)};
+
+  /* which surface is under a point: a table top (with its edges) or the sand */
+  function surfaceAt(x,z,y){
+    for(const tb of LEVELS[cur].tables){const w=tb.cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;
+      if(Math.abs(x-tb.x)<w/2&&Math.abs(z-zc)<d/2&&y>=tb.h-0.25)return{y:tb.h,tb,x0:tb.x-w/2,x1:tb.x+w/2,z0:zc-d/2,z1:zc+d/2}}
+    return{y:0}
+  }
+  function decal(bank,x,z,y,size,hex,k,dur){
+    const i=bank.alloc();if(i===undefined)return;
+    const o={bank,i,pos:new THREE.Vector3(x,y,z),q:new THREE.Quaternion().setFromAxisAngle(UP,Math.random()*Math.PI*2),size,t:0,dur};
+    bank.tint(i,hex,k);bank.put(i,o.pos,o.q,0.001,1,0.001);bank.live.push(o);grow.push(o);
+  }
+  /* a splat: clamped to fit on its table; near the front edge it also sends drips down the table front */
+  function splat(P,hex,size){
+    const s=surfaceAt(P.x,P.z,P.y);let x=P.x,z=P.z,r=size/2;
+    if(s.tb){x=Math.min(s.x1-0.06,Math.max(s.x0+0.06,x));z=Math.min(s.z1-0.06,Math.max(s.z0+0.06,z));
+      r=Math.max(0.16,Math.min(r,x-s.x0,s.x1-x,z-s.z0,s.z1-z));
+      if(s.z1-z<0.42){const n=1+Math.floor(Math.random()*2);for(let k=0;k<n;k++)drip(x+(Math.random()-.5)*r*1.2,s.z1+0.026,s.y-0.004,hex)}}
+    decal(splatBanks[Math.floor(Math.random()*splatBanks.length)],x,z,s.y+0.012,r*2,hex,s.tb?1:0.82,0.18);
+  }
+  function spot(x,z,y,size,hex){
+    const s=surfaceAt(x,z,y);if(s.tb){if(x<s.x0+0.03||x>s.x1-0.03||z<s.z0+0.03||z>s.z1-0.03)return}
+    decal(spotBank,x,z,s.y+0.011,size,hex,s.tb?1:0.82,0.08);
+  }
+  function drip(x,z,y,hex){
+    const i=dripBank.alloc();if(i===undefined)return;
+    const o={bank:dripBank,i,pos:new THREE.Vector3(x,y,z),q:new THREE.Quaternion(),w:0.05+Math.random()*0.06,len:0.12+Math.random()*0.08,t:-Math.random()*0.3,dur:1.1+Math.random()*0.6,hex,dropped:false};
+    dripBank.tint(i,hex);dripBank.put(i,o.pos,o.q,0.001,0.001,1);dripBank.live.push(o);drips.push(o);
+  }
+  function drop(P,v,size,hex){
+    const i=dropBank.alloc();if(i===undefined)return;
+    const o={bank:dropBank,i,p:P.clone(),v,size,hex,life:2.4};dropBank.tint(i,hex);dropBank.live.push(o);drops.push(o);
+  }
+  function shard(P,v){
+    const i=glassBank.alloc();if(i===undefined)return;
+    const o={bank:glassBank,i,p:P.clone(),v,rot:new THREE.Euler(Math.random()*6,Math.random()*6,Math.random()*6),spin:V3((Math.random()-.5)*20,(Math.random()-.5)*20,(Math.random()-.5)*20),sx:0.08+Math.random()*0.1,sy:0.08+Math.random()*0.12,life:1.4+Math.random()*0.6,rest:0};
+    glassBank.live.push(o);glass.push(o);
+  }
+  /* a jar smash: a burst of glossy droplets, glass, a splat where it stood */
+  function smash(P,hex){
+    for(let k=0;k<30;k++){const big=k<6;const a=Math.random()*Math.PI*2,sp=big?1.2+Math.random()*2:1.8+Math.random()*3.6;
+      drop(V3(P.x+(Math.random()-.5)*.25,P.y+(Math.random()-.4)*.35,P.z+(Math.random()-.5)*.2),V3(Math.cos(a)*sp,(big?1:1.6)+Math.random()*4.2,Math.sin(a)*sp*0.7+0.8),big?1.4+Math.random()*0.8:0.45+Math.random()*0.7,hex)}
+    for(let k=0;k<12;k++)shard(V3(P.x+(Math.random()-.5)*.3,P.y+(Math.random()-.5)*.4,P.z+(Math.random()-.5)*.25),V3((Math.random()-.5)*6,1+Math.random()*4.5,(Math.random()-.5)*4+0.6));
+    const s=surfaceAt(P.x,P.z,P.y);if(Math.abs(P.y-s.y)<1.2)splat(P,hex,0.8+Math.random()*0.55);
+  }
+  function update(dt){
+    for(let k=grow.length-1;k>=0;k--){const o=grow[k];if(o.dead){grow.splice(k,1);continue}o.t+=dt;const f=easeBack(o.t/o.dur)*o.size;o.bank.put(o.i,o.pos,o.q,f,1,f);if(o.t>=o.dur)grow.splice(k,1)}
+    for(let k=drips.length-1;k>=0;k--){const o=drips[k];if(o.dead){drips.splice(k,1);continue}o.t+=dt;if(o.t<0)continue;const f=Math.min(1,o.t/o.dur),e=1-Math.pow(1-f,3);
+      o.bank.put(o.i,o.pos,o.q,o.w,o.len*e,1);
+      if(f>=1&&!o.dropped){o.dropped=true;drop(V3(o.pos.x,o.pos.y-o.len,o.pos.z+0.02),V3(0,-0.2,0.05),0.5,o.hex);drips.splice(k,1)}}
+    for(let k=drops.length-1;k>=0;k--){const o=drops[k];if(o.dead){drops.splice(k,1);continue}
+      o.life-=dt;o.v.y-=GRAV*dt;o.p.addScaledVector(o.v,dt);
+      const s=surfaceAt(o.p.x,o.p.z,o.p.y+0.2);
+      if(o.p.y<=s.y+0.02||o.life<=0){if(o.life>0)spot(o.p.x,o.p.z,o.p.y+0.2,0.07+o.size*0.11,o.hex);o.bank.kill(o);drops.splice(k,1);continue}
+      /* stretch each droplet along its direction of travel so it reads as liquid */
+      const sp=o.v.length();vB.copy(o.v).divideScalar(sp||1);qA.setFromUnitVectors(UP,vB);const st=1+Math.min(sp*0.16,1.9);
+      o.bank.put(o.i,o.p,qA,o.size/st**0.35,o.size*st,o.size/st**0.35)}
+    for(let k=glass.length-1;k>=0;k--){const o=glass[k];if(o.dead){glass.splice(k,1);continue}
+      o.life-=dt;const s=surfaceAt(o.p.x,o.p.z,o.p.y+0.2);
+      if(o.p.y>s.y+0.012){o.v.y-=GRAV*dt;o.p.addScaledVector(o.v,dt);o.rot.x+=o.spin.x*dt;o.rot.y+=o.spin.y*dt;o.rot.z+=o.spin.z*dt}
+      else{o.p.y=s.y+0.012;if(o.v.y<-1.5){o.v.y*=-0.25;o.v.x*=0.4;o.v.z*=0.4;o.p.y+=0.01}else{o.v.set(0,0,0);o.rot.x=-Math.PI/2}}
+      const sc=o.life<0.3?Math.max(0,o.life/0.3):1;
+      if(o.life<=0){o.bank.kill(o);glass.splice(k,1);continue}
+      qB.setFromEuler(o.rot);o.bank.put(o.i,o.p,qB,o.sx*sc,o.sy*sc,1)}
+    for(const b of banks)b.flush();
+  }
+  function clear(){for(const b of banks)b.clear();grow.length=drops.length=drips.length=glass.length=0;for(const b of banks)b.flush()}
+  function stats(){return{drops:drops.length,glass:glass.length,drips:drips.length,splats:splatBanks.reduce((n,b)=>n+b.live.length,0),spots:spotBank.live.length}}
+  return{smash,update,clear,stats};
+})();
+
 function clearLevel(){
   for(const e of ents)if(e.mesh)pickables.remove(e.mesh);
   for(const k in batches){pickables.remove(batches[k].im);if(batches[k].im.dispose)batches[k].im.dispose()}
   batches={};
   for(const b of balls)scene.remove(b.mesh);
   for(const d of decals)scene.remove(d);
+  jamFx.clear();
   for(const f of fx)release(f.o);
   ents=[];targets=[];balls=[];decals=[];fx=[];breakQ=[];
 }
@@ -646,12 +759,13 @@ function smash(e){
   rmBody(e);hideVis(e);
   wakeNear(P);
   if(e.kind==='jar'){
-    const jm=jamMats[e.jam];
-    for(let i=0;i<20;i++){const m=pooled('blob'+e.jam,()=>new THREE.Mesh(G.blob,jm));m.position.set(P.x+rnd(-.15,.15),P.y+rnd(-.2,.2),P.z+rnd(-.1,.15));const s=rnd(.6,1.9);m.scale.set(s,s,s);spawn(m,{v:V3(rnd(-3.5,3.5),rnd(.5,5.5),rnd(-1.5,3.5)),life:rnd(.9,1.7)})}
-    for(let i=0;i<9;i++){const m=i%3?pooled('shard',()=>new THREE.Mesh(G.shard,M.shard)):pooled('shardJ'+e.jam,()=>new THREE.Mesh(G.shard,jm));m.position.set(P.x+rnd(-.2,.2),P.y+rnd(-.25,.25),P.z+rnd(-.2,.2));spawn(m,{v:V3(rnd(-3,3),rnd(1,5),rnd(-2,3)),spin:V3(rnd(-10,10),rnd(-10,10),0),life:rnd(.8,1.4)})}
+    const hex=parseInt(JAM[e.jam].slice(1),16);
+    jamFx.smash(P,hex);
+    /* a fine jam mist and a couple of glints off the glass */
+    for(let i=0;i<4;i++)puff(P,new THREE.Color(hex).lerp(new THREE.Color(0xffffff),.35).getHex(),.75);
     for(let i=0;i<3;i++)sparkle(P,0xFFFFFF,.5);
-    const sp=new THREE.Mesh(G.splat,jm);sp.rotation.x=-Math.PI/2;sp.rotation.z=rnd(0,6);
-    sp.position.set(P.x+rnd(-.2,.2),surfaceBelow(P)+0.012+decals.length*0.0004,P.z+rnd(-.2,.2));const s=rnd(.8,1.4);sp.scale.set(s,s*rnd(.7,1),1);scene.add(sp);decals.push(sp);
+    /* two scraps of the gingham lid */
+    for(let i=0;i<2;i++){const m=pooled('lid'+e.jam,()=>new THREE.Mesh(G.disc,jarMats(e.jam).lid[0]));m.position.set(P.x+rnd(-.1,.1),P.y+0.3,P.z+rnd(-.1,.1));const k=rnd(1.6,2.4);m.scale.set(k,1.5,k);spawn(m,{v:V3(rnd(-2,2),rnd(2.5,4.5),rnd(-1,1.5)),spin:V3(rnd(-12,12),rnd(-6,6),rnd(-12,12)),life:rnd(1.1,1.6)})}
     sfx.smash();
   }else{
     for(let i=0;i<5;i++)sparkle(P,0xFFE27A,.6);
@@ -804,6 +918,7 @@ function confetti(){
   for(let i=0;i<80;i++){const ci=i%cols.length;const m=pooled('conf'+ci,()=>new THREE.Mesh(CONF_GEO,new THREE.MeshBasicMaterial({color:cols[ci],side:THREE.DoubleSide})));m.position.set(rnd(-4,4),rnd(6,9),rnd(-8,-1));spawn(m,{v:V3(rnd(-.6,.6),rnd(-1,0),rnd(-.3,.3)),spin:V3(rnd(-6,6),rnd(-6,6),rnd(-6,6)),life:rnd(2,3.2),conf:true})}
 }
 function updateFx(dt){
+  jamFx.update(dt);
   for(let i=fx.length-1;i>=0;i--){
     const f=fx[i];f.life-=dt;
     if(f.life<=0){release(f.o);fx.splice(i,1);continue}
@@ -958,6 +1073,7 @@ window.__tt={
   render:()=>{syncMeshes(1);renderer.render(scene,camera)},
   drawCalls:()=>{syncMeshes(1);renderer.info.autoReset=true;renderer.render(scene,camera);return renderer.info.render.calls},
   pixelRatio:()=>pr,
+  fx:()=>jamFx.stats(),
   /* where a tap on a target's screen position would aim (checks tapping works with batched drawing) */
   tapTest:k=>{const live=targets.filter(t=>!t.broken);const t=live[k%live.length];const p=t.body.translation();
     const v=V3(p.x,p.y,p.z).project(camera),r=cv.getBoundingClientRect();
