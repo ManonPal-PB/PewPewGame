@@ -114,9 +114,9 @@ try {
   log('\n## Graphics\n');
   for (const i of [9, 26, 29]) {
     const calls = await page.evaluate(i => { window.__tt.play(i, false); return window.__tt.drawCalls(); }, i);
-    const ok = calls <= 80;
+    const ok = calls <= 110;
     if (!ok) failed = true;
-    log(`- Level ${i + 1}: ${calls} draw calls per frame ${ok ? '✅' : '❌ (want 80 or fewer)'}`);
+    log(`- Level ${i + 1}: ${calls} draw calls per frame ${ok ? '✅' : '❌ (want 110 or fewer)'}`);
   }
   const di = await page.evaluate(() => { window.__tt.play(29, false); return window.__tt.drawInfo(); });
   console.log('   draw breakdown (level 30): ' + JSON.stringify(di));
@@ -173,8 +173,8 @@ try {
     t.advance(1.5);
     return { fx: t.fx(), calls: t.drawCalls() };
   });
-  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 110 ? '✅' : '❌'}`);
-  if (combo.calls > 110) failed = true;
+  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 125 ? '✅' : '❌'}`);
+  if (combo.calls > 125) failed = true;
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 

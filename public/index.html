@@ -331,7 +331,7 @@ const lam=c=>STD({color:c,roughness:.9});
 const M={
   sand:STD({map:sandTex,roughness:1,color:0xFFF4E0}),
   wet:STD({color:0xE2B266,roughness:.55}),
-  sea:STD({color:0x1FA9D6,roughness:.4,envMapIntensity:.3}),seaFar:STD({color:0x1288BF,roughness:.4,envMapIntensity:.3}),
+  sea:STD({color:0x1597CC,roughness:.4,envMapIntensity:.3}),seaFar:STD({color:0x1288BF,roughness:.4,envMapIntensity:.3}),
   surf:new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:.75}),
   wood:STD({map:woodTex,roughness:.62}),
   woodDark:STD({color:0xA8652C,roughness:.55}),
@@ -423,7 +423,7 @@ const clouds=[];for(const [x,y,z,s] of [[-60,34,-250,56],[45,46,-260,64],[100,28
   const starGeo=new THREE.ShapeGeometry(s);const starMat=lam(0xF2783C);
   for(const [x,z,r] of [[-2.4,-3.2,.4],[2.6,-2.0,1.2],[-3.0,-0.8,2.2],[3.2,-5.2,.2],[-1.6,-5.8,2.7]]){const m=new THREE.Mesh(starGeo,starMat);m.rotation.set(-Math.PI/2,0,r);m.position.set(x,0.012,z);scene.add(m)}
   const shellGeo=new THREE.SphereGeometry(.12,10,6,0,Math.PI*2,0,Math.PI/2);const shellMat=lam(0xFFF1DE);
-  for(const [x,z] of [[-3,-1.6],[2.8,-3.8],[1.4,-5.6],[-2.6,-4.6]]){const m=new THREE.Mesh(shellGeo,shellMat);m.scale.set(1,.45,1.25);m.position.set(x,0,z);m.castShadow=true;scene.add(m)}
+  for(const [x,z] of [[-3,-1.6],[2.8,-3.8],[1.4,-5.6],[-2.6,-4.6]]){const m=new THREE.Mesh(shellGeo,shellMat);m.scale.set(1,.45,1.25);m.position.set(x,0,z);m.castShadow=false;scene.add(m)}
 })();
 
 /* cannon */
@@ -735,7 +735,8 @@ function loadLevel(i){
   const counts={},specOf={};
   for(const it of items)for(const sp of batchSpecs(it.kind,it.ci)){counts[sp[0]]=(counts[sp[0]]||0)+1;specOf[sp[0]]=sp}
   for(const k in counts){const [key,geo,mat,local]=specOf[k];
-    const im=new THREE.InstancedMesh(geo,mat,counts[k]);im.castShadow=true;im.receiveShadow=true;im.frustumCulled=false;
+    /* jar lids sit inside the jar's own shadow, so they don't need to cast one */
+    const im=new THREE.InstancedMesh(geo,mat,counts[k]);im.castShadow=!key.startsWith('jl');im.receiveShadow=true;im.frustumCulled=false;
     batches[k]={im,local,n:0,dirty:true};pickables.add(im)}
 
   for(const it of items){
