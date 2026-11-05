@@ -309,7 +309,7 @@ function adaptRes(ms){
   if(n!==pr){pr=n;renderer.setPixelRatio(pr);resize();prCool=150;ftAvg=16.7}
 }
 renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.toneMapping=THREE.NeutralToneMapping??THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+renderer.toneMapping=THREE.NeutralToneMapping??THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap??THREE.PCFShadowMap;
 const scene=new THREE.Scene();
 /* soft studio reflections for shiny tins, glossy jars and the cannon */
@@ -329,9 +329,9 @@ sun.shadow.bias=-0.0006;sun.shadow.normalBias=0.02;sun.shadow.radius=3;
 const STD=o=>new THREE.MeshStandardMaterial(o),PHYS=o=>new THREE.MeshPhysicalMaterial(o);
 const lam=c=>STD({color:c,roughness:.9});
 const M={
-  sand:STD({map:sandTex,roughness:1}),
+  sand:STD({map:sandTex,roughness:1,color:0xFFF4E0}),
   wet:STD({color:0xE2B266,roughness:.55}),
-  sea:STD({color:0x1FA9D6,roughness:.18,metalness:.1}),seaFar:STD({color:0x1288BF,roughness:.2}),
+  sea:STD({color:0x1FA9D6,roughness:.4,envMapIntensity:.3}),seaFar:STD({color:0x1288BF,roughness:.4,envMapIntensity:.3}),
   surf:new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:.75}),
   wood:STD({map:woodTex,roughness:.62}),
   woodDark:STD({color:0xA8652C,roughness:.55}),
@@ -1117,6 +1117,14 @@ window.__tt={
   render:()=>{syncMeshes(1);renderer.render(scene,camera)},
   drawCalls:()=>{syncMeshes(1);renderer.info.autoReset=true;renderer.render(scene,camera);return renderer.info.render.calls},
   pixelRatio:()=>pr,
+  /* where the draw calls come from: objects in the main pass and in the sun's shadow pass */
+  drawInfo:()=>{syncMeshes(1);const out={};let main=0,shadow=0;
+    scene.traverseVisible(o=>{if(!o.isMesh&&!o.isSprite&&!o.isPoints&&!o.isLine)return;const g=Array.isArray(o.material)?(o.geometry.groups.length||1):1;
+      const k=(o.isInstancedMesh?'batch':o.isSprite?'sprite':'mesh')+(o.material&&!Array.isArray(o.material)&&o.material.transparent?'-transparent':'');
+      out[k]=(out[k]||0)+g;main+=g;if(o.castShadow)shadow+=g});
+    renderer.shadowMap.enabled=false;renderer.render(scene,camera);const noShadow=renderer.info.render.calls;
+    renderer.shadowMap.enabled=true;renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);const withShadow=renderer.info.render.calls;
+    return{counted:{main,shadow,byKind:out},measured:{noShadow,withShadow}}},
   fx:()=>jamFx.stats(),
   /* run the game forward by game-time seconds at 60 frames a second (physics and effects together) */
   advance:sec=>{const n=Math.round(sec*60);for(let k=0;k<n;k++){step();step();updateFx(1/60)}syncMeshes(1)},

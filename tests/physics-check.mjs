@@ -118,6 +118,8 @@ try {
     if (!ok) failed = true;
     log(`- Level ${i + 1}: ${calls} draw calls per frame ${ok ? '✅' : '❌ (want 80 or fewer)'}`);
   }
+  const di = await page.evaluate(() => { window.__tt.play(29, false); return window.__tt.drawInfo(); });
+  console.log('   draw breakdown (level 30): ' + JSON.stringify(di));
   const taps = await page.evaluate(() => {
     window.__tt.play(9, false);
     const out = [];
