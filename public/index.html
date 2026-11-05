@@ -652,7 +652,7 @@ function smash(e){
     for(let i=0;i<3;i++)sparkle(P,0xFFFFFF,.5);
     const sp=new THREE.Mesh(G.splat,jm);sp.rotation.x=-Math.PI/2;sp.rotation.z=rnd(0,6);
     sp.position.set(P.x+rnd(-.2,.2),surfaceBelow(P)+0.012+decals.length*0.0004,P.z+rnd(-.2,.2));const s=rnd(.8,1.4);sp.scale.set(s,s*rnd(.7,1),1);scene.add(sp);decals.push(sp);
-    sfx.smash();shake=Math.max(shake,.08);
+    sfx.smash();
   }else{
     for(let i=0;i<5;i++)sparkle(P,0xFFE27A,.6);
     for(let i=0;i<4;i++)puff(P,0xF6DCA8,.9);
@@ -723,7 +723,7 @@ function fire(){
   const ballObj={body,col,mesh,kind:'ball',age:0,still:0,pv:{x:v.x,y:v.y,z:v.z},pp:V3(S.x,S.y,S.z),cp:V3(S.x,S.y,S.z),pq:new THREE.Quaternion(),cq:new THREE.Quaternion()};
   mesh.position.copy(ballObj.cp);
   colMap.set(col.handle,ballObj);balls.push(ballObj);
-  used++;if(!infinite)ballsLeft--;cooldown=32;recoil=1;shake=Math.max(shake,.06);
+  used++;if(!infinite)ballsLeft--;cooldown=32;recoil=1;
   reticle.position.copy(aimP);reticleLife=.35;
   for(let i=0;i<5;i++)puff(S,0xFFFFFF,1);
   sfx.boom();buzz(15);renderBalls(true);

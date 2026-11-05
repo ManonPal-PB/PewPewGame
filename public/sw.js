@@ -1,5 +1,5 @@
 // Topple Town offline cache. Bump VERSION whenever index.html changes.
-const VERSION='topple-town-v9-smooth';
+const VERSION='topple-town-v10';
 const CORE=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs'];
