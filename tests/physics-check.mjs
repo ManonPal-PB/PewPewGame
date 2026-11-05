@@ -178,6 +178,13 @@ try {
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
+try {
+  for (const [i, name] of [[15, 'level16-standing'], [9, 'level10-standing']]) {
+    await page.evaluate(i => { window.__tt.play(i, false); window.__tt.advance(0.1); window.__tt.render(); }, i);
+    await grab(name);
+  }
+} catch (e) { fail('Level screenshots crashed: ' + e.message); }
+
 for (const [name, b64] of shots) {
   console.log(`SHOT-BEGIN ${name}`);
   for (let k = 0; k < b64.length; k += 4000) console.log('SHOT ' + b64.slice(k, k + 4000));
