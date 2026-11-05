@@ -1,4 +1,4 @@
-# Topple Town (PewPewGame)
+# Pew Pew
 
 A 3D beach cannon game for phones: tap where you want to shoot and knock every jam jar and tin off the tables. 30 levels, an infinite-balls mode, and offline play once it's installed on the home screen.
 
@@ -35,4 +35,4 @@ Every push to `main` redeploys automatically.
 
 ## Releasing an update
 
-When `public/index.html` changes, also change `VERSION` at the top of `public/sw.js` (for example `topple-town-v6` → `topple-town-v7`). That tells phones to swap their saved offline copy for the new one the next time they open the game online.
+When `public/index.html` changes, also change `VERSION` at the top of `public/sw.js` (for example `pew-pew-v12` → `pew-pew-v13`). That tells phones to swap their saved offline copy for the new one the next time they open the game online.

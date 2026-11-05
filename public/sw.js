@@ -1,7 +1,9 @@
-// Topple Town offline cache. Bump VERSION whenever index.html changes.
-const VERSION='topple-town-v11-jam';
+// Pew Pew offline cache. Bump VERSION whenever index.html changes.
+const VERSION='pew-pew-v12';
 const CORE=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.core.js',
+  'https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/environments/RoomEnvironment.js',
   'https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs'];
 const FONT_CSS='https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap';
 

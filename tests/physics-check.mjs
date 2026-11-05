@@ -1,4 +1,4 @@
-// Automatic physics check for Topple Town.
+// Automatic physics check for Pew Pew.
 // Runs on GitHub's computers (see .github/workflows/physics-check.yml):
 // opens the game in a real browser, then for every level checks that
 //   1. the stacks stand still on their own (nothing wobbles, falls or breaks), and
@@ -171,8 +171,8 @@ try {
     t.advance(1.5);
     return { fx: t.fx(), calls: t.drawCalls() };
   });
-  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 150 ? '✅' : '❌'}`);
-  if (combo.calls > 150) failed = true; // short-lived puffs and sparkles; batched in phase 2
+  log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 95 ? '✅' : '❌'}`);
+  if (combo.calls > 95) failed = true;
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 

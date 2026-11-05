@@ -6,12 +6,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Topple Town">
+<meta name="apple-mobile-web-app-title" content="Pew Pew">
 <meta name="theme-color" content="#7FD0F2">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Topple Town</title>
+<title>Pew Pew</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
@@ -117,7 +117,7 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
 
   <div class="overlay" id="ovTitle">
     <div class="card">
-      <h1 class="logo">Topple<span>Town</span></h1>
+      <h1 class="logo">Pew<span>Pew!</span></h1>
       <p class="tag">Knock every jam jar and tin off the tables before your balls run out.</p>
       <ul class="how">
         <li><b>1</b>Tap the screen where you want to shoot</li>
@@ -166,11 +166,18 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"}}</script>
 <script>
+/* if the game's modules can't load (no internet on first visit), say so instead of sitting on a dead Play button */
+setTimeout(function(){if(!window.__ppStarted){var s=document.getElementById('stage');if(s)s.innerHTML='<div id="err">The game did not load. Check your internet and open it again.</div>'}},20000);
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+window.__ppStarted=true;
 (function(){
 'use strict';
-if(!window.THREE){
+if(!THREE){
   document.getElementById('stage').innerHTML='<div id="err">The game did not load. Check your connection and refresh the page.</div>';
   return;
 }
@@ -241,7 +248,7 @@ LEVELS.forEach(L=>L.tables.forEach(tb=>{
 /* ---------- textures ---------- */
 /* textures are drawn at 2x for sharpness on Retina screens */
 let MAX_ANISO=4;const allTex=[];
-function canvasTex(w,h,draw,rep,k){k=k||2;const c=document.createElement('canvas');c.width=w*k;c.height=h*k;const g=c.getContext('2d');g.scale(k,k);draw(g,w,h);const t=new THREE.CanvasTexture(c);if(rep){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep[0],rep[1])}t.anisotropy=MAX_ANISO;allTex.push(t);return t}
+function canvasTex(w,h,draw,rep,k){k=k||2;const c=document.createElement('canvas');c.width=w*k;c.height=h*k;const g=c.getContext('2d');g.scale(k,k);draw(g,w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;if(rep){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep[0],rep[1])}t.anisotropy=MAX_ANISO;allTex.push(t);return t}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=amt<0?0:255,p=Math.abs(amt);r=Math.round((f-r)*p+r);g=Math.round((f-g)*p+g);b=Math.round((f-b)*p+b);return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}
 const skyTex=canvasTex(4,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#2FA4E6');gr.addColorStop(.45,'#7FD0F2');gr.addColorStop(.7,'#CDEFFB');gr.addColorStop(1,'#E8F8FD');g.fillStyle=gr;g.fillRect(0,0,w,h)},undefined,1);
 const sandTex=canvasTex(256,256,(g)=>{g.fillStyle='#EDB964';g.fillRect(0,0,256,256);
@@ -301,38 +308,45 @@ function adaptRes(ms){
   else if(ftAvg<11.5&&pr<PR_MAX)n=Math.min(PR_MAX,pr+0.25);
   if(n!==pr){pr=n;renderer.setPixelRatio(pr);resize();prCool=150;ftAvg=16.7}
 }
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.NeutralToneMapping??THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap??THREE.PCFShadowMap;
 const scene=new THREE.Scene();
+/* soft studio reflections for shiny tins, glossy jars and the cannon */
+{const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;pmrem.dispose();}
+scene.environmentIntensity=0.55;
 scene.background=skyTex;scene.fog=new THREE.Fog(0xD6F1FB,90,320);
 const camera=new THREE.PerspectiveCamera(60,1,0.1,400);
 
-scene.add(new THREE.HemisphereLight(0xFFFFFF,0xE0A050,0.62));
-const sun=new THREE.DirectionalLight(0xFFF3DC,1.0);
+scene.add(new THREE.HemisphereLight(0xFFFFFF,0xE0A050,1.15));
+const sun=new THREE.DirectionalLight(0xFFF3DC,2.6);
 sun.position.set(9,16,2);sun.target.position.set(0,0,-6);scene.add(sun,sun.target);
 sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-10,right:10,top:12,bottom:-12,near:2,far:50});
-sun.shadow.bias=-0.0006;
+sun.shadow.bias=-0.0006;sun.shadow.normalBias=0.02;sun.shadow.radius=3;
 
-const lam=c=>new THREE.MeshLambertMaterial({color:c});
+/* physically based materials: matte sand and wood, glossy plastic, shiny metal tins, glassy jars */
+const STD=o=>new THREE.MeshStandardMaterial(o),PHYS=o=>new THREE.MeshPhysicalMaterial(o);
+const lam=c=>STD({color:c,roughness:.9});
 const M={
-  sand:new THREE.MeshLambertMaterial({map:sandTex}),
-  wet:lam(0xE2B266),
-  sea:lam(0x1FA9D6),seaFar:lam(0x1288BF),
+  sand:STD({map:sandTex,roughness:1}),
+  wet:STD({color:0xE2B266,roughness:.55}),
+  sea:STD({color:0x1FA9D6,roughness:.18,metalness:.1}),seaFar:STD({color:0x1288BF,roughness:.2}),
   surf:new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:.75}),
-  wood:new THREE.MeshPhongMaterial({map:woodTex,shininess:25}),
-  woodDark:new THREE.MeshPhongMaterial({color:0xA8652C,shininess:25}),
-  pedBase:new THREE.MeshPhongMaterial({color:0x1E9BD7,shininess:40}),
-  gold:new THREE.MeshPhongMaterial({color:0xFFC63D,shininess:80,specular:0xFFF0C0}),
-  coral:new THREE.MeshPhongMaterial({color:0xF2545B,shininess:70,specular:0xFFD0D0}),
-  cream:new THREE.MeshPhongMaterial({color:0xFFF8EC,shininess:40}),
-  teal:new THREE.MeshPhongMaterial({color:0x14799F,shininess:40}),
-  stone:new THREE.MeshLambertMaterial({map:stoneTex}),
-  ball:new THREE.MeshPhongMaterial({map:ballTex,shininess:90,specular:0xFFFFFF}),
+  wood:STD({map:woodTex,roughness:.62}),
+  woodDark:STD({color:0xA8652C,roughness:.55}),
+  pedBase:PHYS({color:0x1E9BD7,roughness:.35,clearcoat:.6}),
+  gold:STD({color:0xFFC63D,roughness:.28,metalness:.55}),
+  coral:PHYS({color:0xF2545B,roughness:.32,clearcoat:.9,clearcoatRoughness:.15}),
+  cream:PHYS({color:0xFFF8EC,roughness:.4,clearcoat:.5}),
+  teal:PHYS({color:0x14799F,roughness:.35,clearcoat:.6}),
+  stone:STD({map:stoneTex,roughness:.92}),
+  ball:PHYS({map:ballTex,roughness:.28,clearcoat:1,clearcoatRoughness:.08}),
   ring:new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:.9,depthTest:false,side:THREE.DoubleSide}),
-  shard:new THREE.MeshPhongMaterial({color:0xFFF8EC,shininess:60}),
-  tinBit:new THREE.MeshPhongMaterial({color:0xD5DCE4,shininess:90})
+  shard:STD({color:0xFFF8EC,roughness:.4}),
+  tinBit:STD({color:0xD5DCE4,roughness:.18,metalness:.9})
 };
-const jamMats=JAM.map(c=>new THREE.MeshPhongMaterial({color:c,shininess:90,specular:0xFFFFFF}));
+const jamMats=JAM.map(c=>PHYS({color:c,roughness:.12,clearcoat:1,clearcoatRoughness:.06}));
 const G={
   cyl:new THREE.CylinderGeometry(0.29,0.29,0.7,22),
   jarCyl:new THREE.CylinderGeometry(0.27,0.29,0.66,22),
@@ -414,7 +428,7 @@ const clouds=[];for(const [x,y,z,s] of [[-60,34,-250,56],[45,46,-260,64],[100,28
 
 /* cannon */
 (function(){
-  const mound=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.MeshLambertMaterial({map:sandTex}));mound.scale.set(2.0,0.32,1.6);mound.position.set(0,0,0.2);mound.receiveShadow=true;scene.add(mound);
+  const mound=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),STD({map:sandTex,roughness:1}));mound.scale.set(2.0,0.32,1.6);mound.position.set(0,0,0.2);mound.receiveShadow=true;scene.add(mound);
   const turn=new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.1,0.32,30),M.teal);turn.position.set(0,0.36,0.2);turn.castShadow=true;scene.add(turn);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(1.02,0.07,8,40),M.gold);rim.rotation.x=Math.PI/2;rim.position.set(0,0.52,0.2);scene.add(rim);
   const yoke=new THREE.Mesh(G.box,M.coral);yoke.scale.set(1.2,0.9,0.7);yoke.position.set(0,0.98,0.2);yoke.castShadow=true;scene.add(yoke);
@@ -486,12 +500,14 @@ const pickables=new THREE.Group();scene.add(pickables);
    That is a handful of draw calls per level instead of hundreds. */
 const jarMatCache={},tinMats={};
 function jarMats(ci){
-  if(!jarMatCache[ci]){const [side,top]=getJar(ci);const topM=new THREE.MeshPhongMaterial({map:top});
-    jarMatCache[ci]={body:[new THREE.MeshPhongMaterial({map:side,shininess:70,specular:0x777777}),topM,jamMats[ci]],lid:[topM,topM,M.cream]}}
+  if(!jarMatCache[ci]){const [side,top]=getJar(ci);const topM=STD({map:top,roughness:.85});
+    /* glass jar: glossy clear-coat over the painted jam */
+    jarMatCache[ci]={body:[PHYS({map:side,roughness:.16,clearcoat:1,clearcoatRoughness:.05}),topM,jamMats[ci]],lid:[topM,topM,M.cream]}}
   return jarMatCache[ci];
 }
 function tinMat(ci){
-  if(!tinMats[ci])tinMats[ci]=[new THREE.MeshPhongMaterial({map:getTin(ci),shininess:110,specular:0xFFFFFF}),new THREE.MeshPhongMaterial({map:tinTop,shininess:120,specular:0xFFFFFF}),new THREE.MeshPhongMaterial({color:0xAEB8C4})];
+  /* tin: painted metal side, bright metal lid and base */
+  if(!tinMats[ci])tinMats[ci]=[STD({map:getTin(ci),roughness:.3,metalness:.5}),STD({map:tinTop,roughness:.22,metalness:.9}),STD({color:0xAEB8C4,roughness:.25,metalness:.9})];
   return tinMats[ci];
 }
 const LOCAL={jarBody:new THREE.Matrix4().makeTranslation(0,-0.03,0),jarLid:new THREE.Matrix4().makeTranslation(0,0.33,0),tin:new THREE.Matrix4(),stone:new THREE.Matrix4().makeScale(HALF[0]*2,HALF[1]*2,HALF[2]*2)};
@@ -507,7 +523,7 @@ function setVis(e,pos,quat){
   for(const [b,i] of e.vis){M4b.multiplyMatrices(M4,b.local);b.im.setMatrixAt(i,M4b);b.dirty=true}
 }
 function hideVis(e){for(const [b,i] of e.vis){b.im.setMatrixAt(i,HIDE);b.dirty=true}}
-function flushBatches(){for(const k in batches){const b=batches[k];if(b.dirty){b.im.instanceMatrix.needsUpdate=true;b.dirty=false}}}
+function flushBatches(){for(const k in batches){const b=batches[k];if(b.dirty){b.im.instanceMatrix.needsUpdate=true;b.im.boundingSphere=null;b.dirty=false}}}
 
 /* reusable effect objects (splashes, shards, puffs, sparkles, confetti) instead of creating new ones every smash */
 const pools={};
@@ -544,9 +560,10 @@ const jamFx=(function(){
     tint(i,hex,k){if(this.im.setColorAt){cA.set(hex);if(k)cA.multiplyScalar(k);this.im.setColorAt(i,cA);this.im.instanceColor.needsUpdate=true}}
     kill(o){if(o.dead)return;o.dead=true;const j=this.live.indexOf(o);if(j>=0)this.live.splice(j,1);this.im.setMatrixAt(o.i,HIDE);this.free.push(o.i);this.dirty=true}
     clear(){for(const o of this.live){o.dead=true;this.im.setMatrixAt(o.i,HIDE);this.free.push(o.i)}this.live=[];this.dirty=true}
-    flush(){if(this.dirty){this.im.instanceMatrix.needsUpdate=true;this.dirty=false}}
+    /* idle batches are hidden, so they cost nothing to draw */
+    flush(){this.im.visible=this.live.length>0;if(this.dirty){this.im.instanceMatrix.needsUpdate=true;this.dirty=false}}
   }
-  const decalMat=tex=>new THREE.MeshPhongMaterial({map:tex,transparent:true,alphaTest:0.05,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,shininess:90,specular:0x777777});
+  const decalMat=tex=>new THREE.MeshPhysicalMaterial({map:tex,transparent:true,alphaTest:0.05,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,roughness:.18,clearcoat:.8});
   const flat=new THREE.PlaneGeometry(1,1);flat.rotateX(-Math.PI/2);
   const hang=new THREE.PlaneGeometry(1,1);hang.translate(0,-0.5,0);
   const tri=new THREE.BufferGeometry();tri.setAttribute('position',new THREE.Float32BufferAttribute([-0.5,-0.4,0,0.55,-0.3,0,0.05,0.6,0],3));tri.computeVertexNormals();
@@ -554,9 +571,43 @@ const jamFx=(function(){
   const splatBanks=[11,23,37,51].map(sd=>new Bank(flat,decalMat(splatTex(sd)),60,{color:true,receive:true,order:1}));
   const spotBank=new Bank(flat,decalMat(spotTex()),320,{color:true,receive:true,order:1});
   const dripBank=new Bank(hang,decalMat(dripTex()),60,{color:true,order:1});
-  const dropBank=new Bank(dropGeo,new THREE.MeshPhongMaterial({shininess:140,specular:0xffffff}),420,{color:true,shadow:true});
-  const glassBank=new Bank(tri,new THREE.MeshPhongMaterial({color:0xEAF7FF,transparent:true,opacity:.6,shininess:220,specular:0xffffff,side:THREE.DoubleSide,depthWrite:false}),220,{order:2});
-  const banks=[...splatBanks,spotBank,dripBank,dropBank,glassBank];
+  const dropBank=new Bank(dropGeo,new THREE.MeshPhysicalMaterial({roughness:.1,clearcoat:1,clearcoatRoughness:.05}),420,{color:true,shadow:true});
+  const glassBank=new Bank(tri,new THREE.MeshPhysicalMaterial({color:0xEAF7FF,transparent:true,opacity:.55,roughness:.04,metalness:0,clearcoat:1,envMapIntensity:1.6,side:THREE.DoubleSide,depthWrite:false}),220,{order:2});
+  /* camera-facing puffs and sparkles, drawn in one batch each, each with its own fade */
+  function fadeMat(tex,blend){const m=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,blending:blend||THREE.NormalBlending});
+    m.onBeforeCompile=sh=>{sh.vertexShader='attribute float aAlpha;\nvarying float vAlpha;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vAlpha=aAlpha;');
+      sh.fragmentShader='varying float vAlpha;\n'+sh.fragmentShader.replace('#include <alphamap_fragment>','#include <alphamap_fragment>\n  diffuseColor.a*=vAlpha;')};return m}
+  function spriteBank(tex,cap,blend){const g=new THREE.PlaneGeometry(1,1);const a=new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(1),1);g.setAttribute('aAlpha',a);
+    const b=new Bank(g,fadeMat(tex,blend),cap,{color:true,order:4});b.alpha=a;return b}
+  const puffBank=spriteBank(softTex,160),sparkBank=spriteBank(sparkTex,120,THREE.AdditiveBlending);
+  const confBank=new Bank(new THREE.PlaneGeometry(.18,.11),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),100,{color:true,order:3});
+  const banks=[...splatBanks,spotBank,dripBank,dropBank,glassBank,puffBank,sparkBank,confBank];
+  const chunkBanks={};
+  function chunkBank(key,make){if(!chunkBanks[key]){const [g,m]=make();chunkBanks[key]=new Bank(g,m,80,{shadow:true});banks.push(chunkBanks[key])}return chunkBanks[key]}
+  const sprites=[],chunks=[];
+  const qZ=new THREE.Quaternion(),ZAX=new THREE.Vector3(0,0,1);
+  function sprite(bank,P,color,size,o){const i=bank.alloc();if(i===undefined)return;
+    const sp={bank,i,p:P.clone(),v:o.v,size,grow:o.grow,life:o.life,fade:o.fade,rot:0,twinkle:!!o.twinkle};
+    bank.tint(i,color);bank.live.push(sp);sprites.push(sp)}
+  function fxPuff(P,color,size){sprite(puffBank,V3(P.x+rnd(-.3,.3),P.y+rnd(-.2,.3),P.z+rnd(-.3,.3)),color,rnd(.5,.9)*size,{v:V3(rnd(-.6,.6),rnd(.3,1.1),rnd(-.6,.6)),grow:1.8,life:rnd(.5,.9),fade:l=>Math.min(.8,l*1.4)})}
+  function fxSparkle(P,color,size){sprite(sparkBank,V3(P.x+rnd(-.35,.35),P.y+rnd(-.2,.45),P.z+rnd(-.2,.3)),color,rnd(.4,.8)*size,{v:V3(rnd(-.4,.4),rnd(.4,1.2),0),grow:-.4,life:rnd(.35,.6),fade:l=>Math.min(1,l*3),twinkle:true})}
+  function fxChunk(key,make,P,v,spin,sx,sy,sz,life){const bank=chunkBank(key,make);const i=bank.alloc();if(i===undefined)return;
+    const c={bank,i,p:P.clone(),v,spin,rot:new THREE.Euler(),sx,sy,sz,life,conf:false};bank.live.push(c);chunks.push(c)}
+  function fxConfetti(cols){for(let k=0;k<80;k++){const i=confBank.alloc();if(i===undefined)return;confBank.tint(i,cols[k%cols.length]);
+    const c={bank:confBank,i,p:V3(rnd(-4,4),rnd(6,9),rnd(-8,-1)),v:V3(rnd(-.6,.6),rnd(-1,0),rnd(-.3,.3)),spin:V3(rnd(-6,6),rnd(-6,6),rnd(-6,6)),rot:new THREE.Euler(),sx:1,sy:1,sz:1,life:rnd(2,3.2),conf:true};confBank.live.push(c);chunks.push(c)}}
+  function updateExtras(dt){
+    for(let k=sprites.length-1;k>=0;k--){const sp=sprites[k];if(sp.dead){sprites.splice(k,1);continue}
+      sp.life-=dt;if(sp.life<=0){sp.bank.kill(sp);sprites.splice(k,1);continue}
+      sp.p.addScaledVector(sp.v,dt);sp.size=Math.max(.05,sp.size+sp.grow*dt);if(sp.twinkle)sp.rot+=dt*4;
+      qZ.setFromAxisAngle(ZAX,sp.rot);qA.copy(camera.quaternion).multiply(qZ);
+      sp.bank.put(sp.i,sp.p,qA,sp.size,sp.size,1);sp.bank.alpha.setX(sp.i,sp.fade(sp.life));sp.bank.alpha.needsUpdate=true}
+    for(let k=chunks.length-1;k>=0;k--){const c=chunks[k];if(c.dead){chunks.splice(k,1);continue}
+      c.life-=dt;if(c.life<=0){c.bank.kill(c);chunks.splice(k,1);continue}
+      if(c.conf){c.v.y=Math.max(c.v.y-2*dt,-1.6);c.v.x+=Math.sin(c.life*5+k)*.05}else c.v.y-=GRAV*dt;
+      c.p.addScaledVector(c.v,dt);c.rot.x+=c.spin.x*dt;c.rot.y+=c.spin.y*dt;c.rot.z+=c.spin.z*dt;
+      if(!c.conf){const fl=surfaceAt(c.p.x,c.p.z,c.p.y+0.2).y+0.03;if(c.p.y<fl){c.p.y=fl;c.v.y*=-.2;c.v.x*=.4;c.v.z*=.4;c.spin.multiplyScalar(.4)}}
+      const sc=c.life<0.3?c.life/0.3:1;qB.setFromEuler(c.rot);c.bank.put(c.i,c.p,qB,c.sx*sc,c.sy*sc,c.sz*sc)}
+  }
   const grow=[],drops=[],drips=[],glass=[];
   const easeBack=t=>{const c=1.6;t=Math.min(1,t);return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)};
 
@@ -623,11 +674,12 @@ const jamFx=(function(){
       const sc=o.life<0.3?Math.max(0,o.life/0.3):1;
       if(o.life<=0){o.bank.kill(o);glass.splice(k,1);continue}
       qB.setFromEuler(o.rot);o.bank.put(o.i,o.p,qB,o.sx*sc,o.sy*sc,1)}
+    updateExtras(dt);
     for(const b of banks)b.flush();
   }
-  function clear(){for(const b of banks)b.clear();grow.length=drops.length=drips.length=glass.length=0;for(const b of banks)b.flush()}
+  function clear(){for(const b of banks)b.clear();grow.length=drops.length=drips.length=glass.length=sprites.length=chunks.length=0;for(const b of banks)b.flush()}
   function stats(){return{drops:drops.length,glass:glass.length,drips:drips.length,splats:splatBanks.reduce((n,b)=>n+b.live.length,0),spots:spotBank.live.length}}
-  return{smash,update,clear,stats};
+  return{smash,update,clear,stats,puff:fxPuff,sparkle:fxSparkle,chunk:fxChunk,confetti:fxConfetti};
 })();
 
 function clearLevel(){
@@ -765,12 +817,12 @@ function smash(e){
     for(let i=0;i<2;i++)puff(P,new THREE.Color(hex).lerp(new THREE.Color(0xffffff),.35).getHex(),.75);
     for(let i=0;i<2;i++)sparkle(P,0xFFFFFF,.5);
     /* a scrap of the gingham lid */
-    for(let i=0;i<1;i++){const m=pooled('lid'+e.jam,()=>new THREE.Mesh(G.disc,jarMats(e.jam).lid[0]));m.position.set(P.x+rnd(-.1,.1),P.y+0.3,P.z+rnd(-.1,.1));const k=rnd(1.6,2.4);m.scale.set(k,1.5,k);spawn(m,{v:V3(rnd(-2,2),rnd(2.5,4.5),rnd(-1,1.5)),spin:V3(rnd(-12,12),rnd(-6,6),rnd(-12,12)),life:rnd(1.1,1.6)})}
+    {const k=rnd(1.6,2.4);jamFx.chunk('lid'+e.jam,()=>[G.disc,jarMats(e.jam).lid[0]],V3(P.x+rnd(-.1,.1),P.y+0.3,P.z+rnd(-.1,.1)),V3(rnd(-2,2),rnd(2.5,4.5),rnd(-1,1.5)),V3(rnd(-12,12),rnd(-6,6),rnd(-12,12)),k,1.5,k,rnd(1.1,1.6))}
     sfx.smash();
   }else{
     for(let i=0;i<3;i++)sparkle(P,0xFFE27A,.6);
     for(let i=0;i<2;i++)puff(P,0xF6DCA8,.9);
-    for(let i=0;i<2;i++){const m=pooled('disc',()=>new THREE.Mesh(G.disc,M.tinBit));m.position.copy(P);spawn(m,{v:V3(rnd(-2,2),rnd(2,4),rnd(-1,2)),spin:V3(rnd(-12,12),0,rnd(-12,12)),life:rnd(.6,1)})}
+    for(let i=0;i<2;i++)jamFx.chunk('disc',()=>[G.disc,M.tinBit],P,V3(rnd(-2,2),rnd(2,4),rnd(-1,2)),V3(rnd(-12,12),0,rnd(-12,12)),1,1,1,rnd(.6,1));
     sfx.ting();
   }
   buzz(10);remaining--;
@@ -783,23 +835,15 @@ function crumble(e){
   const P=posOf(e);
   rmBody(e);hideVis(e);wakeNear(P);
   for(let i=0;i<6;i++)puff(P,0xC9D0D8,1.1);
-  for(let i=0;i<6;i++){const m=pooled('stoneShard',()=>new THREE.Mesh(G.shard,M.stone));const k=rnd(1.2,2.2);m.scale.set(k,k,k);m.position.set(P.x+rnd(-.2,.2),P.y+rnd(-.1,.2),P.z+rnd(-.2,.2));spawn(m,{v:V3(rnd(-2,2),rnd(1,3),rnd(-1.5,1.5)),spin:V3(rnd(-8,8),rnd(-8,8),0),life:rnd(.6,1)})}
+  for(let i=0;i<6;i++){const k=rnd(1.2,2.2);jamFx.chunk('stone',()=>[G.shard,M.stone],V3(P.x+rnd(-.2,.2),P.y+rnd(-.1,.2),P.z+rnd(-.2,.2)),V3(rnd(-2,2),rnd(1,3),rnd(-1.5,1.5)),V3(rnd(-8,8),rnd(-8,8),0),k,k,k,rnd(.6,1))}
   sfx.thud(1);
 }
 function surfaceBelow(P){
   for(const tb of LEVELS[cur].tables){const cols=tb.cols,w=cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;if(Math.abs(P.x-tb.x)<w/2&&Math.abs(P.z-zc)<d/2&&P.y>=tb.h-0.2)return tb.h}
   return 0;
 }
-function puff(P,color,size){
-  const sp=pooled('puff',()=>new THREE.Sprite(new THREE.SpriteMaterial({map:softTex,transparent:true,depthWrite:false})));sp.material.color.setHex(color);sp.material.opacity=.8;
-  sp.position.set(P.x+rnd(-.3,.3),P.y+rnd(-.2,.3),P.z+rnd(-.3,.3));const s=rnd(.5,.9)*size;sp.scale.set(s,s,1);
-  spawn(sp,{v:V3(rnd(-.6,.6),rnd(.3,1.1),rnd(-.6,.6)),life:rnd(.5,.9),puff:true,grow:1.8});
-}
-function sparkle(P,color,size){
-  const sp=pooled('spark',()=>new THREE.Sprite(new THREE.SpriteMaterial({map:sparkTex,transparent:true,depthWrite:false})));sp.material.color.setHex(color);sp.material.opacity=1;
-  sp.position.set(P.x+rnd(-.35,.35),P.y+rnd(-.2,.45),P.z+rnd(-.2,.3));const s=rnd(.4,.8)*size;sp.scale.set(s,s,1);
-  spawn(sp,{v:V3(rnd(-.4,.4),rnd(.4,1.2),0),life:rnd(.35,.6),puff:true,grow:-.4,twinkle:true});
-}
+function puff(P,color,size){jamFx.puff(P,color,size)}
+function sparkle(P,color,size){jamFx.sparkle(P,color,size)}
 
 /* ---------- aiming & firing ---------- */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
@@ -915,7 +959,7 @@ function finish(win){
 const CONF_GEO=new THREE.PlaneGeometry(.18,.11);
 function confetti(){
   const cols=[0xF2545B,0xFFC63D,0x1E9BD7,0x5CC85A,0xE85BA5];
-  for(let i=0;i<80;i++){const ci=i%cols.length;const m=pooled('conf'+ci,()=>new THREE.Mesh(CONF_GEO,new THREE.MeshBasicMaterial({color:cols[ci],side:THREE.DoubleSide})));m.position.set(rnd(-4,4),rnd(6,9),rnd(-8,-1));spawn(m,{v:V3(rnd(-.6,.6),rnd(-1,0),rnd(-.3,.3)),spin:V3(rnd(-6,6),rnd(-6,6),rnd(-6,6)),life:rnd(2,3.2),conf:true})}
+  jamFx.confetti(cols);
 }
 function updateFx(dt){
   jamFx.update(dt);
@@ -1095,7 +1139,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('sw.js').then(function(){return navigator.serviceWorker.ready}).then(function(){
       var tries=0;(function check(){
-        caches.keys().then(function(keys){return Promise.all(keys.map(function(k){return caches.open(k).then(function(c){return c.match('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js')})}))})
+        caches.keys().then(function(keys){return Promise.all(keys.map(function(k){return caches.open(k).then(function(c){return c.match('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js')})}))})
         .then(function(r){if(r.some(Boolean))set('\u2713 Saved for offline play',true);else if(++tries<20)setTimeout(check,1000);else set('Open the game once more with internet to finish saving it.')});
       })();
     }).catch(function(){set('Offline saving didn\u2019t work. Open the game again with internet.')});
