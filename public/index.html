@@ -339,7 +339,8 @@ const lam=c=>STD({color:c,roughness:.9});
 const M={
   sand:STD({map:sandTex,roughness:1}),
   wet:STD({color:0xE2B266,roughness:.55}),
-  sea:STD({color:0x1597CC,roughness:.4,envMapIntensity:.3,fog:false}),seaFar:STD({color:0x1288BF,roughness:.4,envMapIntensity:.3,fog:false}),
+  /* the sea glows a little so it stays bright turquoise under the softer lighting */
+  sea:STD({color:0x19AEE0,emissive:0x0B6E9A,emissiveIntensity:.55,roughness:.4,envMapIntensity:.3,fog:false}),seaFar:STD({color:0x1288BF,emissive:0x0A5C86,emissiveIntensity:.5,roughness:.4,envMapIntensity:.3,fog:false}),
   surf:new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:.75,fog:false}),
   wood:STD({map:woodTex,roughness:.62}),
   woodDark:STD({color:0xA8652C,roughness:.55}),
