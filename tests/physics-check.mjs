@@ -147,16 +147,16 @@ async function grab(name) {
 }
 try {
   log('\n## Jam effects\n');
-  await page.evaluate(() => { window.__tt.play(0, true); window.__tt.freeze(false); });
-  await page.waitForTimeout(400);
-  await page.evaluate(() => window.__tt.fireAt(-0.3, 1.66, -8));
-  // wait for the smash, then catch the splash mid-air
-  await page.waitForFunction(() => window.__tt.info().remaining < 8, null, { timeout: 5000 });
-  await page.waitForTimeout(110);
-  const mid = await page.evaluate(() => ({ fx: window.__tt.fx(), calls: window.__tt.drawCalls() }));
+  // driven frame by frame (the test machine has no graphics card, so real time is too slow)
+  const mid = await page.evaluate(() => {
+    const t = window.__tt; t.freeze(true); t.play(0, true);
+    t.fireAt(-0.3, 1.66, -8);
+    let n = 0; while (t.info().remaining >= 8 && n < 240) { t.advance(1 / 60); n++; }
+    t.advance(0.12);
+    return { fx: t.fx(), calls: t.drawCalls(), frames: n };
+  });
   await grab('jam-splash');
-  await page.waitForTimeout(2600);
-  const after = await page.evaluate(() => window.__tt.fx());
+  const after = await page.evaluate(() => { window.__tt.advance(2.6); window.__tt.render(); return window.__tt.fx(); });
   await grab('jam-after');
   log(`- Mid-splash: ${mid.fx.drops} droplets, ${mid.fx.glass} glass shards, ${mid.calls} draw calls`);
   log(`- After 2.6 s: ${after.splats} splats, ${after.spots} spots, ${after.drips} drips still running, ${after.drops} droplets in the air`);
@@ -165,15 +165,15 @@ try {
   log(`- ${ok ? '✅' : '❌'} splash, splat and spots appear; draw calls stay low`);
 
   // a combo on a big wall
-  await page.evaluate(() => { window.__tt.play(3, true); });
-  await page.waitForTimeout(300);
-  for (const x of [-2.1, -1.5, 1.5, 2.1, -1.8]) { await page.evaluate(x => window.__tt.fireAt(x, 1.66, -8), x); await page.waitForTimeout(350); }
-  await page.waitForTimeout(1500);
-  const combo = await page.evaluate(() => ({ fx: window.__tt.fx(), calls: window.__tt.drawCalls() }));
+  const combo = await page.evaluate(() => {
+    const t = window.__tt; t.play(3, true);
+    for (const x of [-2.1, -1.5, 1.5, 2.1, -1.8]) { t.fireAt(x, 1.66, -8); t.advance(0.35); }
+    t.advance(1.5);
+    return { fx: t.fx(), calls: t.drawCalls() };
+  });
   log(`- Big combo (level 4, 5 shots): ${combo.fx.splats} splats, ${combo.fx.spots} spots, ${combo.calls} draw calls ${combo.calls <= 95 ? '✅' : '❌'}`);
   if (combo.calls > 95) failed = true;
   await grab('jam-combo');
-  await page.evaluate(() => window.__tt.freeze(true));
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
 for (const [name, b64] of shots) {

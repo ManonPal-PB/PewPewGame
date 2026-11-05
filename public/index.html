@@ -963,7 +963,7 @@ function frame(t){
     if(n===8)acc=0;
   }else acc=0;
   const alpha=(testFreeze||state==='menu')?1:Math.min(1,acc/DT);
-  syncMeshes(alpha);updateFx(dt);aimBarrel();
+  syncMeshes(alpha);if(!testFreeze)updateFx(dt);aimBarrel();
   /* smooth shake (wave-based instead of random jumps each frame) */
   const sk=reduceMotion?0:shake;
   camera.position.set(CAM_BASE.x+Math.sin(tNow*53)*sk,CAM_BASE.y+Math.sin(tNow*47+1.3)*sk,CAM_BASE.z);
@@ -1074,6 +1074,8 @@ window.__tt={
   drawCalls:()=>{syncMeshes(1);renderer.info.autoReset=true;renderer.render(scene,camera);return renderer.info.render.calls},
   pixelRatio:()=>pr,
   fx:()=>jamFx.stats(),
+  /* run the game forward by game-time seconds at 60 frames a second (physics and effects together) */
+  advance:sec=>{const n=Math.round(sec*60);for(let k=0;k<n;k++){step();step();updateFx(1/60)}syncMeshes(1)},
   /* where a tap on a target's screen position would aim (checks tapping works with batched drawing) */
   tapTest:k=>{const live=targets.filter(t=>!t.broken);const t=live[k%live.length];const p=t.body.translation();
     const v=V3(p.x,p.y,p.z).project(camera),r=cv.getBoundingClientRect();
