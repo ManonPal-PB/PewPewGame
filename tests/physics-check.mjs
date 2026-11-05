@@ -110,7 +110,29 @@ try {
     }
   }
 
-  // 3. A mid-flight screenshot so a person can see a real hit
+  // 3. Graphics: draw calls on the biggest levels, and taps aim at what was tapped
+  log('\n## Graphics\n');
+  for (const i of [9, 26, 29]) {
+    const calls = await page.evaluate(i => { window.__tt.play(i, false); return window.__tt.drawCalls(); }, i);
+    const ok = calls <= 80;
+    if (!ok) failed = true;
+    log(`- Level ${i + 1}: ${calls} draw calls per frame ${ok ? '✅' : '❌ (want 80 or fewer)'}`);
+  }
+  const taps = await page.evaluate(() => {
+    window.__tt.play(9, false);
+    const out = [];
+    for (let k = 0; k < 12; k++) {
+      const r = window.__tt.tapTest(k * 7);
+      out.push(Math.hypot(r.target[0] - r.aim[0], r.target[1] - r.aim[1], r.target[2] - r.aim[2]));
+    }
+    return out;
+  });
+  const worstTap = Math.max(...taps);
+  if (worstTap > 0.45) failed = true;
+  log(`- Tapping a jar aims at it: worst miss ${worstTap.toFixed(2)} m over 12 taps ${worstTap <= 0.45 ? '✅' : '❌'}`);
+  log(`- Screen sharpness (pixel ratio) settled at ${await page.evaluate(() => window.__tt.pixelRatio())} in the test browser`);
+
+  // 4. A mid-flight screenshot so a person can see a real hit
   await page.evaluate(() => { window.__tt.play(9, true); window.__tt.fireAt(-1.9, 2.5, -8); window.__tt.step(40); window.__tt.render(); });
   await page.screenshot({ path: `${OUT}/level-10-impact.png` });
 } catch (e) {
