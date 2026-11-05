@@ -599,8 +599,8 @@ const jamFx=(function(){
   }
   /* a jar smash: a burst of glossy droplets, glass, a splat where it stood */
   function smash(P,hex){
-    for(let k=0;k<30;k++){const big=k<6;const a=Math.random()*Math.PI*2,sp=big?1.2+Math.random()*2:1.8+Math.random()*3.6;
-      drop(V3(P.x+(Math.random()-.5)*.25,P.y+(Math.random()-.4)*.35,P.z+(Math.random()-.5)*.2),V3(Math.cos(a)*sp,(big?1:1.6)+Math.random()*4.2,Math.sin(a)*sp*0.7+0.8),big?1.4+Math.random()*0.8:0.45+Math.random()*0.7,hex)}
+    for(let k=0;k<28;k++){const big=k<6;const a=Math.random()*Math.PI*2,sp=big?0.5+Math.random()*1.1:0.8+Math.random()*1.9;
+      drop(V3(P.x+(Math.random()-.5)*.25,P.y+(Math.random()-.4)*.3,P.z+(Math.random()-.5)*.2),V3(Math.cos(a)*sp,(big?0.8:1.2)+Math.random()*(big?1.8:3),Math.sin(a)*sp*0.6+0.3),big?1.0+Math.random()*0.5:0.35+Math.random()*0.45,hex)}
     for(let k=0;k<12;k++)shard(V3(P.x+(Math.random()-.5)*.3,P.y+(Math.random()-.5)*.4,P.z+(Math.random()-.5)*.25),V3((Math.random()-.5)*6,1+Math.random()*4.5,(Math.random()-.5)*4+0.6));
     const s=surfaceAt(P.x,P.z,P.y);if(Math.abs(P.y-s.y)<1.2)splat(P,hex,0.8+Math.random()*0.55);
   }
@@ -612,10 +612,10 @@ const jamFx=(function(){
     for(let k=drops.length-1;k>=0;k--){const o=drops[k];if(o.dead){drops.splice(k,1);continue}
       o.life-=dt;o.v.y-=GRAV*dt;o.p.addScaledVector(o.v,dt);
       const s=surfaceAt(o.p.x,o.p.z,o.p.y+0.2);
-      if(o.p.y<=s.y+0.02||o.life<=0){if(o.life>0)spot(o.p.x,o.p.z,o.p.y+0.2,0.07+o.size*0.11,o.hex);o.bank.kill(o);drops.splice(k,1);continue}
+      if(o.p.y<=s.y+0.02||o.life<=0){if(o.life>0&&(o.size>0.6||Math.random()<0.45))spot(o.p.x,o.p.z,o.p.y+0.2,0.05+o.size*0.09,o.hex);o.bank.kill(o);drops.splice(k,1);continue}
       /* stretch each droplet along its direction of travel so it reads as liquid */
-      const sp=o.v.length();vB.copy(o.v).divideScalar(sp||1);qA.setFromUnitVectors(UP,vB);const st=1+Math.min(sp*0.16,1.9);
-      o.bank.put(o.i,o.p,qA,o.size/st**0.35,o.size*st,o.size/st**0.35)}
+      const sp=o.v.length();vB.copy(o.v).divideScalar(sp||1);qA.setFromUnitVectors(UP,vB);const st=1+Math.min(sp*0.07,0.6);
+      o.bank.put(o.i,o.p,qA,o.size/Math.sqrt(st),o.size*st,o.size/Math.sqrt(st))}
     for(let k=glass.length-1;k>=0;k--){const o=glass[k];if(o.dead){glass.splice(k,1);continue}
       o.life-=dt;const s=surfaceAt(o.p.x,o.p.z,o.p.y+0.2);
       if(o.p.y>s.y+0.012){o.v.y-=GRAV*dt;o.p.addScaledVector(o.v,dt);o.rot.x+=o.spin.x*dt;o.rot.y+=o.spin.y*dt;o.rot.z+=o.spin.z*dt}
@@ -762,15 +762,15 @@ function smash(e){
     const hex=parseInt(JAM[e.jam].slice(1),16);
     jamFx.smash(P,hex);
     /* a fine jam mist and a couple of glints off the glass */
-    for(let i=0;i<4;i++)puff(P,new THREE.Color(hex).lerp(new THREE.Color(0xffffff),.35).getHex(),.75);
-    for(let i=0;i<3;i++)sparkle(P,0xFFFFFF,.5);
-    /* two scraps of the gingham lid */
-    for(let i=0;i<2;i++){const m=pooled('lid'+e.jam,()=>new THREE.Mesh(G.disc,jarMats(e.jam).lid[0]));m.position.set(P.x+rnd(-.1,.1),P.y+0.3,P.z+rnd(-.1,.1));const k=rnd(1.6,2.4);m.scale.set(k,1.5,k);spawn(m,{v:V3(rnd(-2,2),rnd(2.5,4.5),rnd(-1,1.5)),spin:V3(rnd(-12,12),rnd(-6,6),rnd(-12,12)),life:rnd(1.1,1.6)})}
+    for(let i=0;i<2;i++)puff(P,new THREE.Color(hex).lerp(new THREE.Color(0xffffff),.35).getHex(),.75);
+    for(let i=0;i<2;i++)sparkle(P,0xFFFFFF,.5);
+    /* a scrap of the gingham lid */
+    for(let i=0;i<1;i++){const m=pooled('lid'+e.jam,()=>new THREE.Mesh(G.disc,jarMats(e.jam).lid[0]));m.position.set(P.x+rnd(-.1,.1),P.y+0.3,P.z+rnd(-.1,.1));const k=rnd(1.6,2.4);m.scale.set(k,1.5,k);spawn(m,{v:V3(rnd(-2,2),rnd(2.5,4.5),rnd(-1,1.5)),spin:V3(rnd(-12,12),rnd(-6,6),rnd(-12,12)),life:rnd(1.1,1.6)})}
     sfx.smash();
   }else{
-    for(let i=0;i<5;i++)sparkle(P,0xFFE27A,.6);
-    for(let i=0;i<4;i++)puff(P,0xF6DCA8,.9);
-    for(let i=0;i<4;i++){const m=pooled('disc',()=>new THREE.Mesh(G.disc,M.tinBit));m.position.copy(P);spawn(m,{v:V3(rnd(-2,2),rnd(2,4),rnd(-1,2)),spin:V3(rnd(-12,12),0,rnd(-12,12)),life:rnd(.6,1)})}
+    for(let i=0;i<3;i++)sparkle(P,0xFFE27A,.6);
+    for(let i=0;i<2;i++)puff(P,0xF6DCA8,.9);
+    for(let i=0;i<2;i++){const m=pooled('disc',()=>new THREE.Mesh(G.disc,M.tinBit));m.position.copy(P);spawn(m,{v:V3(rnd(-2,2),rnd(2,4),rnd(-1,2)),spin:V3(rnd(-12,12),0,rnd(-12,12)),life:rnd(.6,1)})}
     sfx.ting();
   }
   buzz(10);remaining--;
