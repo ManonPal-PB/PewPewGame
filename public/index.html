@@ -421,7 +421,8 @@ for(const [x,z,h,lean,turn] of [[-12,-52,14,.18,-1.2],[-18,-48,16,.22,-1.7],[-27
 
 /* beach boxes: striped bodies, gabled roofs, doors, on a little deck */
 {const designs=[['#F2545B','#FFF8EC'],['#1E9BD7','#FFF8EC'],['#FFC63D','#1E9BD7'],['#5CC85A','#FFF8EC'],['#E85BA5','#FFF8EC'],['#20B2A0','#FFC63D']];
- const spots=[];for(let k=0;k<6;k++){spots.push([-30+k*3.4,-60,k]);spots.push([13+k*3.4,-61,(k+3)%6])}
+ /* two rows either side of the sea view, close enough in to show on a portrait screen */
+ const spots=[];for(let k=0;k<6;k++){spots.push([-6.6-k*3.4,-60,k]);spots.push([6.6+k*3.4,-61,(k+3)%6])}
  const bodyGeo=new THREE.BoxGeometry(2.6,3.2,2.4);
  const roofGeo=new THREE.CylinderGeometry(1.7,1.7,2.8,3,1);roofGeo.rotateX(-Math.PI/2);
  const doorGeo=new THREE.BoxGeometry(1.0,2.0,0.06),deckGeo=new THREE.BoxGeometry(3.0,0.25,2.9);
@@ -448,7 +449,7 @@ for(const [x,z,h,lean,turn] of [[-12,-52,14,.18,-1.2],[-18,-48,16,.22,-1.7],[-27
    const wall=new THREE.BoxGeometry(1.2,.35,.25);wall.translate(x,.18,z+.32);add(wall,sand,.03);
    const pole=new THREE.CylinderGeometry(.015,.015,.45,5);pole.translate(x,1.2,z);add(pole,0x6B4220,0);
    const flag=new THREE.BoxGeometry(.22,.13,.01);flag.translate(x+.11,1.36,z);add(flag,0xF2545B,0)};
- castle(2.5,-3.4);
+ castle(2.15,-3.6);
  {const x=-2.5,z=-3.1;const b=new THREE.CylinderGeometry(.3,.23,.45,14,1,true);b.translate(x,.23,z);add(b,0x1E9BD7,0);
   const bt=new THREE.CircleGeometry(.23,14);bt.rotateX(-Math.PI/2);bt.translate(x,.01,z);add(bt,0x1E9BD7,0);
   const rimG=new THREE.TorusGeometry(.3,.025,6,18);rimG.rotateX(Math.PI/2);rimG.translate(x,.45,z);add(rimG,0xFFC63D,0);
