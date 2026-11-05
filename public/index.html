@@ -39,13 +39,13 @@ html,body{height:100%;margin:0}
 *,*::before,*::after{box-sizing:border-box}
 body{font-size:14px;-webkit-text-size-adjust:100%}
 img{max-width:100%}
-html{background:#7FD0F2}
+html{background:linear-gradient(#7FD0F2 0 50%,#F3CC80 50% 100%)}
 .offline{margin:0;font-size:13px;font-weight:800;color:var(--muted)}
 .offline.ok{color:#2E8B3A}
-body{margin:0;background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-touch-callout:none}
+body{margin:0;background:linear-gradient(var(--sky) 0 50%,#F3CC80 50% 100%);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-touch-callout:none}
 /* with the see-through status bar, iOS home-screen apps report a viewport that is short by the status bar's height;
    adding it back makes the game reach the bottom edge */
-#stage{position:fixed;top:0;right:0;left:0;height:calc(100% + env(safe-area-inset-top,0px));overflow:hidden;touch-action:none}
+#stage{position:fixed;top:0;right:0;left:0;height:100%;height:100lvh;overflow:hidden;touch-action:none}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 
 .hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px));pointer-events:none;z-index:2}
@@ -124,7 +124,7 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
       <ul class="how">
         <li><b>1</b>Tap the screen where you want to shoot</li>
         <li><b>2</b>Hold your finger down to keep firing</li>
-        <li><b>3</b>Everything has to end up on the sand</li>
+        <li><b>3</b>Jars, tins and blocks all have to end up on the sand</li>
       </ul>
       <button class="btn go" id="btnPlay">Play</button>
       <button class="btn alt" id="btnPick">Pick a level</button>
@@ -840,7 +840,7 @@ function loadLevel(i){
         const col=world.createCollider(cd,body);
         const e={vis,body,col,kind,jam:it.jam,broken:false,pv:ZERO,spawn:[it.x,it.y,it.z],
           pp:V3(it.x,it.y,it.z),cp:V3(it.x,it.y,it.z),pq:new THREE.Quaternion(),cq:new THREE.Quaternion()};
-        if(kind!=='stone'){e.target=true;targets.push(e);remaining++}
+        e.target=true;targets.push(e);remaining++;
         colMap.set(col.handle,e);
         ents.push(e);
   }
@@ -860,6 +860,7 @@ function loadLevel(i){
   settling=false;
   syncMeshes();
   $('lvlName').textContent=`Level ${cur+1} · ${L.name}`;
+  fitCamera();
   renderBalls(false);
   aimP.set(0,2,-10);shot=solve(aimP);
   if(cur===0&&!firedOnce)$('hint').classList.remove('gone');else $('hint').classList.add('gone');
@@ -926,6 +927,10 @@ function crumble(e){
   for(let i=0;i<6;i++)puff(P,0xC9D0D8,1.1);
   for(let i=0;i<6;i++){const k=rnd(1.2,2.2);jamFx.chunk('stone',()=>[G.shard,M.stone],V3(P.x+rnd(-.2,.2),P.y+rnd(-.1,.2),P.z+rnd(-.2,.2)),V3(rnd(-2,2),rnd(1,3),rnd(-1.5,1.5)),V3(rnd(-8,8),rnd(-8,8),0),k,k,k,rnd(.6,1))}
   sfx.thud(1);
+  /* a block on the sand counts as cleared, like a smashed jar */
+  remaining--;combo++;comboTimer=100;
+  if(combo===5)toast('Nice!');else if(combo===12)toast('Smashing!');else if(combo===25)toast('MEGA SMASH!');
+  if(combo===5||combo===12||combo===25)sfx.cheer();
 }
 function surfaceBelow(P){
   for(const tb of LEVELS[cur].tables){const cols=tb.cols,w=cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;if(Math.abs(P.x-tb.x)<w/2&&Math.abs(P.z-zc)<d/2&&P.y>=tb.h-0.2)return tb.h}
@@ -1008,7 +1013,7 @@ function step(){
   if(crumbleQ.length){const q=crumbleQ;crumbleQ=[];q.forEach(crumble)}
   for(const t of targets){
     if(t.broken||t.queued||t.body.isSleeping())continue;const p=t.body.translation();
-    if(p.y<-3||Math.abs(p.x)>16||p.z>5||p.z<-40)queueBreak(t,'out of bounds');
+    if(p.y<-3||Math.abs(p.x)>16||p.z>5||p.z<-40){if(t.kind==='stone'){if(!t.crumbled){t.crumbled=true;crumbleQ.push(t)}}else queueBreak(t,'out of bounds')}
   }
   for(let i=balls.length-1;i>=0;i--){
     const b=balls[i];b.age++;const sp=vlen(b.body.linvel());
@@ -1082,11 +1087,35 @@ function aimBarrel(){
 }
 
 /* ---------- render loop ---------- */
+/* iPhone home-screen apps with a see-through status bar report a page that is too short;
+   in that mode size the game to the phone's real screen height */
+function fullHeight(){
+  const portrait=innerWidth<innerHeight;
+  if(navigator.standalone&&portrait)return Math.max(innerHeight,screen.height,screen.width);
+  return innerHeight;
+}
 function resize(){
+  $('stage').style.height=fullHeight()+'px';
   const r=cv.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);
   renderer.setSize(w,h,false);
   const a=w/h;camera.aspect=a;
-  camera.fov=a<0.5?62:a<0.7?56:a<1?48:40;
+  fitCamera();
+}
+/* zoom out just enough that every table (and the top of its stack) fits on this screen */
+function fitCamera(){
+  const a=camera.aspect,base=a<0.5?62:a<0.7?56:a<1?48:40;
+  camera.position.copy(CAM_BASE);camera.lookAt(CAM_LOOK);camera.fov=base;
+  const L=LEVELS[cur];
+  if(L){
+    const pts=[];
+    for(const tb of L.tables){const w=tb.cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;
+      const top=tb.h+Math.max(...tb.layers.map(l=>l.length))*ROW;
+      for(const sx of [-1,1])for(const y of [tb.h,top])pts.push(V3(tb.x+sx*(w/2+0.25),y,zc+d/2))}
+    for(let f=base;f<=80;f+=1){
+      camera.fov=f;camera.updateProjectionMatrix();camera.updateMatrixWorld();
+      if(pts.every(p=>{const v=p.clone().project(camera);return Math.abs(v.x)<=0.96&&v.y<=0.8}))break;
+    }
+  }
   camera.updateProjectionMatrix();
 }
 let last=0,acc=0;
@@ -1210,6 +1239,9 @@ window.__tt={
   render:()=>{syncMeshes(1);renderer.render(scene,camera)},
   drawCalls:()=>{syncMeshes(1);renderer.info.autoReset=true;renderer.render(scene,camera);return renderer.info.render.calls},
   pixelRatio:()=>pr,
+  /* how far the widest table corner reaches across the screen (1 = the edge) */
+  frame:()=>{let m=0;for(const tb of LEVELS[cur].tables){const w=tb.cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;
+    for(const sx of [-1,1]){const v=V3(tb.x+sx*w/2,tb.h,zc+d/2).project(camera);m=Math.max(m,Math.abs(v.x))}}return{edge:+m.toFixed(3),fov:camera.fov}},
   /* where the draw calls come from: objects in the main pass and in the sun's shadow pass */
   drawInfo:()=>{syncMeshes(1);const out={};let main=0,shadow=0;
     scene.traverseVisible(o=>{if(!o.isMesh&&!o.isSprite&&!o.isPoints&&!o.isLine)return;const g=Array.isArray(o.material)?(o.geometry.groups.length||1):1;

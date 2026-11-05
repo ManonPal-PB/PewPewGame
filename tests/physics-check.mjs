@@ -42,20 +42,21 @@ try {
   //    b) wake every object and leave it alone for 4 seconds (this is what happens
   //       when the first ball touches a wall): nothing may slide, topple or break
   log('\n## Stacks standing still\n');
-  log('| Level | Targets | Off-layout after load (m) | Broke while awake | Drift while awake (m) | Result |');
-  log('|---|---|---|---|---|---|');
+  log('| Level | Targets | Off-layout after load (m) | Broke while awake | Drift while awake (m) | Widest table edge (1 = screen edge) | Result |');
+  log('|---|---|---|---|---|---|---|');
   for (let i = 0; i < levelCount; i++) {
     const r = await page.evaluate(i => {
       window.__tt.play(i, false);
+      const fr = window.__tt.frame();
       const a = window.__tt.info();
       window.__tt.wakeAll();
       window.__tt.step(480);
       const b = window.__tt.info();
-      return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift, worst: window.__tt.worst(), lost: window.__tt.lost() };
+      return { n: a.remaining, load: a.layoutDrift, broke: a.remaining - b.remaining, drift: b.layoutDrift, worst: window.__tt.worst(), lost: window.__tt.lost(), fr };
     }, i);
-    const ok = r.load < 0.04 && r.broke === 0 && r.drift < 0.10;
+    const ok = r.load < 0.04 && r.broke === 0 && r.drift < 0.10 && r.fr.edge <= 0.97;
     if (!ok) failed = true;
-    log(`| ${i + 1} | ${r.n} | ${r.load.toFixed(3)} | ${r.broke} | ${r.drift.toFixed(3)} | ${ok ? '✅' : '❌'} |`);
+    log(`| ${i + 1} | ${r.n} | ${r.load.toFixed(3)} | ${r.broke} | ${r.drift.toFixed(3)} | ${r.fr.edge} (zoom ${r.fr.fov}°) | ${ok ? '✅' : '❌'} |`);
     if (!ok) console.log('   worst object: ' + JSON.stringify(r.worst));
     if (!ok && r.lost.length) console.log('   broke: ' + JSON.stringify(r.lost));
     if (i === 0 || i === 9 || i === 29) {
@@ -179,7 +180,7 @@ try {
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
 try {
-  for (const [i, name] of [[15, 'level16-standing'], [9, 'level10-standing']]) {
+  for (const [i, name] of [[28, 'level29-standing'], [25, 'level26-standing'], [9, 'level10-standing']]) {
     await page.evaluate(i => { window.__tt.play(i, false); window.__tt.advance(0.1); window.__tt.render(); }, i);
     await grab(name);
   }

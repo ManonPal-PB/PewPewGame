@@ -1,5 +1,5 @@
 // Pew Pew offline cache. Bump VERSION whenever index.html changes.
-const VERSION='pew-pew-v14';
+const VERSION='pew-pew-v15';
 const CORE=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png',
   'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js',
   'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.core.js',
