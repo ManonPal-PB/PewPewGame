@@ -147,9 +147,12 @@ try {
 
 // Jam effects with the game running in real time, plus screenshots printed into the log (base64 JPEG)
 const shots = [];
+// a screenshot is for people to look at; if the slow test browser can't take one in time, skip it rather than fail
 async function grab(name) {
-  const buf = await page.screenshot({ type: 'jpeg', quality: 60, scale: 'css' });
-  shots.push([name, buf.toString('base64')]);
+  try {
+    const buf = await page.screenshot({ type: 'jpeg', quality: 60, scale: 'css', timeout: 45000, animations: 'disabled' });
+    shots.push([name, buf.toString('base64')]);
+  } catch (e) { console.log(`   (screenshot "${name}" skipped: the test browser was too slow)`); }
 }
 try {
   log('\n## Jam effects\n');
