@@ -547,6 +547,7 @@ let crumbleQ=[];
 /* ---------- audio (synthesised, starts on first tap) ---------- */
 let ac=null,muted=false,noiseBuf=null;const lastSfx={};
 function audio(){
+  unlockSpeech();
   if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){ac=null}}
   if(ac&&ac.state==='suspended')ac.resume();
   if(ac&&!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
@@ -579,6 +580,47 @@ const sfx={
   cheer(){[784,988,1175].forEach((f,i)=>tone(f,.14,'square',.06,null,i*.06))}
 };
 function buzz(ms){try{if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
+
+/* ---------- spoken praise: "Nice job Remy!" out loud and on screen, at random moments ----------
+   Uses the phone's built-in voice, so it works offline. It is said just after a smash, never out of the blue,
+   and "Sound: Off" silences the voice (the words still pop up). */
+const PRAISE='Nice job Remy!';
+const synth=window.speechSynthesis||null;
+let voice=null,speechReady=false,nextPraise=0;
+function pickVoice(){
+  if(!synth)return;let vs=[];try{vs=synth.getVoices()||[]}catch(e){}
+  const en=vs.filter(v=>/^en/i.test(v.lang));
+  voice=en.find(v=>/en[-_]AU/i.test(v.lang))||en.find(v=>/en[-_]GB/i.test(v.lang))||en[0]||null;
+}
+if(synth){pickVoice();try{synth.addEventListener('voiceschanged',pickVoice)}catch(e){}}
+/* phones only let a page talk after a tap, so the first tap says a silent nothing to open the door */
+function unlockSpeech(){
+  if(speechReady||!synth)return;speechReady=true;
+  try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;synth.speak(u)}catch(e){}
+}
+function praise(){
+  toast(PRAISE);sfx.cheer();
+  if(muted||!synth||!speechReady)return;
+  try{
+    if(synth.speaking||synth.pending)return;
+    if(!voice)pickVoice();
+    const u=new SpeechSynthesisUtterance('Nice job, Remy!');
+    if(voice)u.voice=voice;u.lang=voice?voice.lang:'en-AU';u.rate=.95;u.pitch=1.15;u.volume=1;
+    synth.speak(u);
+  }catch(e){}
+}
+/* called on every smash: the first one comes early, then every 15 to 35 seconds of smashing */
+function maybePraise(){
+  if(testFreeze||state!=='play')return;
+  const n=performance.now();
+  if(!nextPraise){nextPraise=n+rnd(4000,8000);return}
+  if(n>=nextPraise){nextPraise=n+rnd(15000,35000);praise()}
+}
+/* combo call-outs, or failing that, maybe a "Nice job Remy!" */
+function cheerOn(){
+  if(combo===5)toast('Nice!');else if(combo===12)toast('Smashing!');else if(combo===25)toast('MEGA SMASH!');
+  if(combo===5||combo===12||combo===25)sfx.cheer();else maybePraise();
+}
 
 /* ---------- building a level ---------- */
 const pickables=new THREE.Group();scene.add(pickables);
@@ -917,8 +959,7 @@ function smash(e){
   }
   buzz(10);remaining--;
   combo++;comboTimer=100;
-  if(combo===5)toast('Nice!');else if(combo===12)toast('Smashing!');else if(combo===25)toast('MEGA SMASH!');
-  if(combo===5||combo===12||combo===25)sfx.cheer();
+  cheerOn();
 }
 function crumble(e){
   if(e.broken)return;e.broken=true;
@@ -929,8 +970,7 @@ function crumble(e){
   sfx.thud(1);
   /* a block on the sand counts as cleared, like a smashed jar */
   remaining--;combo++;comboTimer=100;
-  if(combo===5)toast('Nice!');else if(combo===12)toast('Smashing!');else if(combo===25)toast('MEGA SMASH!');
-  if(combo===5||combo===12||combo===25)sfx.cheer();
+  cheerOn();
 }
 function surfaceBelow(P){
   for(const tb of LEVELS[cur].tables){const cols=tb.cols,w=cols*CELL+0.3,d=Math.max(1,tb.depth*CELL+0.4),zc=tb.z-(tb.depth-1)*CELL/2;if(Math.abs(P.x-tb.x)<w/2&&Math.abs(P.z-zc)<d/2&&P.y>=tb.h-0.2)return tb.h}
@@ -1136,7 +1176,7 @@ function frame(t){
   camera.lookAt(CAM_LOOK);
   renderer.render(scene,camera);
 }
-document.addEventListener('visibilitychange',()=>{last=0;acc=0;holding=false});
+document.addEventListener('visibilitychange',()=>{last=0;acc=0;holding=false;if(document.hidden&&synth){try{synth.cancel()}catch(e){}}});
 
 /* ---------- input: tap where you want to shoot, hold to keep firing ---------- */
 cv.addEventListener('pointerdown',e=>{
@@ -1198,7 +1238,7 @@ $('btnMenuLevels').onclick=()=>{sfx.click();show('levels')};
 $('btnAgain').onclick=()=>{sfx.click();startLevel(cur)};
 $('btnResLevels').onclick=()=>{sfx.click();show('levels')};
 $('btnNext').onclick=()=>{sfx.click();startLevel($('btnNext').dataset.mode==='next'?cur+1:cur)};
-$('btnMute').onclick=()=>{muted=!muted;audio();$('btnMute').textContent=muted?'Sound: Off':'Sound: On';if(!muted)sfx.click()};
+$('btnMute').onclick=()=>{muted=!muted;audio();if(muted&&synth){try{synth.cancel()}catch(e){}}$('btnMute').textContent=muted?'Sound: Off':'Sound: On';if(!muted)sfx.click()};
 
 /* ---------- boot ---------- */
 function start(data){
@@ -1258,6 +1298,7 @@ window.__tt={
     const v=V3(p.x,p.y,p.z).project(camera),r=cv.getBoundingClientRect();
     pointAt({clientX:r.left+(v.x+1)/2*r.width,clientY:r.top+(1-v.y)/2*r.height});
     return{target:[p.x,p.y,p.z],aim:[aimP.x,aimP.y,aimP.z]}},
+  praise:()=>{praise();return{text:$('toast').textContent,canSpeak:!!synth}},
   levels:LEVELS.length
 };
 window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?.data??{});

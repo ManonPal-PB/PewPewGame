@@ -179,6 +179,18 @@ try {
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
+// The spoken praise: the words pop up on screen and the browser is asked to say them
+try {
+  log('\n## Nice job Remy\n');
+  const pr = await page.evaluate(() => { window.__tt.play(0, true); window.__tt.render(); return window.__tt.praise(); });
+  await page.waitForTimeout(300);
+  await grab('nice-job-remy');
+  const fits = await page.evaluate(() => { const r = document.getElementById('toast').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; });
+  const ok = pr.text === 'Nice job Remy!' && fits;
+  if (!ok) failed = true;
+  log(`- ${ok ? '✅' : '❌'} "${pr.text}" pops up and fits the screen (voice available in the test browser: ${pr.canSpeak ? 'yes' : 'no'})`);
+} catch (e) { fail('Praise check crashed: ' + e.message); }
+
 try {
   for (const [i, name] of [[28, 'level29-standing'], [25, 'level26-standing'], [9, 'level10-standing']]) {
     await page.evaluate(i => { window.__tt.play(i, false); window.__tt.advance(0.1); window.__tt.render(); }, i);
