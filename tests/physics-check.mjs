@@ -116,7 +116,7 @@ try {
 
   // 3. Graphics: draw calls on the biggest levels, and taps aim at what was tapped
   log('\n## Graphics\n');
-  for (const i of [9, 26, 29, 39, 43]) {
+  for (const i of [9, 26, 29, 34, 43, 49]) {
     const calls = await page.evaluate(i => { window.__tt.play(i, false); return window.__tt.drawCalls(); }, i);
     const ok = calls <= 110;
     if (!ok) failed = true;
@@ -185,6 +185,7 @@ try {
 // Little-kid mode: near-miss taps still aim at a jar, wins always give 3 stars, and the screens need no reading
 try {
   log('\n## Little-kid mode\n');
+  await page.evaluate(() => window.__tt.show('title'));
   await grab('title');
   const near = await page.evaluate(() => {
     const t = window.__tt; t.play(9, true); const out = [];
@@ -194,7 +195,7 @@ try {
   const nearOk = near < 0.05;
   if (!nearOk) failed = true;
   log(`- ${nearOk ? '✅' : '❌'} A tap about 45 pixels off a jar still aims at a jar (worst miss ${near.toFixed(2)} m)`);
-  await page.evaluate(() => { const t = window.__tt; t.freeze(false); t.play(0, true); });
+  await page.evaluate(() => { const t = window.__tt; t.freeze(false); t.fresh(); t.play(0, true); });
   await page.waitForTimeout(1200);
   await grab('hint-hand');
   const stars = await page.evaluate(() => { const t = window.__tt; t.freeze(true); t.play(1, true); for (let k = 0; k < 60; k++) t.fireAt(0, 9, -20); t.finish(true); return t.stars(1); });
@@ -204,8 +205,11 @@ try {
   log(`- ${stars === 3 ? '✅' : '❌'} With infinite balls a win gives 3 stars however many balls were used (got ${stars})`);
   await page.evaluate(() => window.__tt.show('menu'));
   await grab('grown-ups-menu');
-  await page.evaluate(() => window.__tt.show('levels'));
-  await grab('level-grid');
+  await page.evaluate(() => { window.__tt.play(0, true); window.__tt.show('levels'); });
+  try {
+    const buf = await page.screenshot({ type: 'jpeg', quality: 60, scale: 'css', timeout: 20000, animations: 'disabled' });
+    shots.push(['level-grid', buf.toString('base64')]);
+  } catch (e) { console.log('   (level picker screenshot skipped: the test browser was too slow)'); }
   const gridOk = await page.evaluate(() => { const g = document.getElementById('grid'); const c = g.closest('.card').getBoundingClientRect(); return g.children.length === window.__tt.levels && c.top >= 0 && c.bottom <= innerHeight; });
   if (!gridOk) failed = true;
   log(`- ${gridOk ? '✅' : '❌'} The level picker lists every level and fits the screen`);
