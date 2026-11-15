@@ -58,11 +58,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 @keyframes bump{50%{transform:scale(1.12)}}
 .hud-mid{flex:1;min-width:0;display:flex;justify-content:center;padding-top:6px;pointer-events:none}
 .pill{max-width:100%;background:rgba(255,248,236,.92);border:3px solid var(--ink);border-radius:999px;padding:3px 12px;font-family:var(--display);font-size:15px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gear{width:58px;height:58px;flex:none;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#2EB6E6,var(--sea-deep));border:4px solid var(--gold);outline:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);color:var(--cream);padding:0;cursor:pointer;transition:transform .08s;margin-top:4px}
-.gear:active{transform:translateY(2px)}
-.gear svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 0 rgba(29,42,68,.6))}
+.gear{width:48px;height:48px;opacity:.85;touch-action:none;flex:none;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,#2EB6E6,var(--sea-deep));border:4px solid var(--gold);outline:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);color:var(--cream);padding:0;cursor:pointer;transition:transform .08s;margin-top:4px}
+.gear.holding,.grown.holding{animation:holdfill .9s linear both}
+@keyframes holdfill{to{transform:scale(1.3);filter:brightness(1.25)}}
+.gear svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 0 rgba(29,42,68,.6))}
 
-#hint{position:absolute;left:50%;top:46%;transform:translateX(-50%);background:var(--ink);color:var(--cream);font-weight:900;font-size:16px;padding:10px 16px;border-radius:14px;white-space:nowrap;pointer-events:none;transition:opacity .4s;z-index:2}
+/* a pointing hand that taps the jars until the first shot (no reading needed) */
+#hint{position:absolute;left:50%;top:46%;font-size:68px;line-height:1;pointer-events:none;transition:opacity .4s;z-index:2;animation:tap 1.1s ease-in-out infinite;filter:drop-shadow(0 4px 0 rgba(29,42,68,.35))}
+@keyframes tap{0%,100%{transform:translate(-42%,26px)}45%,60%{transform:translate(-42%,0) scale(.9)}}
 #hint.gone{opacity:0}
 #toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);font-family:var(--display);font-size:40px;color:var(--gold);-webkit-text-stroke:8px var(--ink);paint-order:stroke fill;white-space:nowrap;pointer-events:none;opacity:0;z-index:2}
 #toast.show{animation:pop .9s ease-out}
@@ -78,10 +81,17 @@ h2{margin:0;font-family:var(--display);font-weight:400;font-size:34px;line-heigh
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
 .btn.alt{background:var(--cream);font-size:20px;padding:9px 16px}
 .btn.go{background:linear-gradient(#7BDB72,#3FA83D)}
+.btn.big{padding:18px 16px;border-radius:26px;border-width:4px;box-shadow:0 6px 0 var(--ink);display:grid;place-items:center;min-height:112px}
+.btn.big:active{transform:translateY(5px);box-shadow:0 1px 0 var(--ink)}
+.btn.big svg{width:76px;height:76px;fill:var(--cream);stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round;display:block}
+.btn.big.auto{position:relative;overflow:hidden}
+.btn.big.auto::after{content:'';position:absolute;left:0;bottom:0;height:8px;width:100%;background:rgba(29,42,68,.35);transform-origin:left;animation:autobar 4.5s linear both}
+@keyframes autobar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.grown{font-family:var(--body);font-weight:900;font-size:13px;color:var(--muted);background:none;border:2px dashed var(--star-off);border-radius:999px;padding:8px 14px;cursor:pointer;touch-action:none}
 .row{display:flex;gap:10px;width:100%}
 .row .btn{flex:1}
 button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:100%}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:100%;max-height:min(54vh,430px);overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:2px 2px 6px}
 .lv{aspect-ratio:1;max-width:100%;border-radius:14px;border:3px solid var(--ink);background:linear-gradient(#5CC6EE,#2295C6);box-shadow:0 3px 0 var(--ink);font-family:var(--display);font-size:22px;color:var(--cream);-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;padding:0}
 .lv:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
 .lv small{font-family:var(--body);font-weight:900;font-size:10px;letter-spacing:.5px;color:var(--gold);-webkit-text-stroke:2px var(--ink);paint-order:stroke fill}
@@ -97,7 +107,7 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
 .how li{display:flex;gap:8px;align-items:center}
 .how b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--cream);font-size:12px;flex:none}
 #err{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-weight:800}
-@media (prefers-reduced-motion:reduce){.stars span.on,#toast.show,.badge.bump b{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.stars span.on,#toast.show,.badge.bump b{animation-duration:.01s}#hint{animation:none;transform:translate(-42%,10px)}}
 </style>
 </head>
 <body>
@@ -109,33 +119,26 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
   <div class="hud" id="hud" hidden>
     <div class="badge" id="badge"><span>Balls</span><b id="balls">0</b></div>
     <div class="hud-mid"><div class="pill" id="lvlName">Level 1</div></div>
-    <button class="gear" id="btnMenu" aria-label="Menu">
+    <button class="gear" id="btnMenu" aria-label="Grown-ups' menu: press and hold">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8l1.6 2.3 2.7-.6.8 2.6 2.6.8-.6 2.7 2.3 1.6-2.3 1.6.6 2.7-2.6.8-.8 2.6-2.7-.6L12 21.2l-1.6-2.3-2.7.6-.8-2.6-2.6-.8.6-2.7L2.8 12l2.3-1.6-.6-2.7 2.6-.8.8-2.6 2.7.6z"/></svg>
     </button>
   </div>
 
-  <div id="hint" class="gone">Tap where you want to shoot!</div>
+  <div id="hint" class="gone" aria-hidden="true">👆</div>
   <div id="toast"></div>
 
   <div class="overlay" id="ovTitle">
     <div class="card">
       <h1 class="logo">Pew<span>Pew!</span></h1>
-      <p class="tag">Knock every jam jar and tin off the tables before your balls run out.</p>
-      <ul class="how">
-        <li><b>1</b>Tap the screen where you want to shoot</li>
-        <li><b>2</b>Hold your finger down to keep firing</li>
-        <li><b>3</b>Jars, tins and blocks all have to end up on the sand</li>
-      </ul>
-      <button class="btn go" id="btnPlay">Play</button>
-      <button class="btn alt" id="btnPick">Pick a level</button>
-      <button class="btn alt" id="btnInfTitle">Infinite balls: Off</button>
+      <button class="btn go big" id="btnPlay" aria-label="Play">Play</button>
+      <button class="grown" id="btnGrown">Grown-ups: hold here</button>
       <p class="offline" id="offline">Getting ready for offline play…</p>
     </div>
   </div>
 
   <div class="overlay" id="ovMenu" hidden>
     <div class="card">
-      <h2>Paused</h2>
+      <h2>Grown-ups</h2>
       <button class="btn go" id="btnResume">Keep playing</button>
       <div class="row">
         <button class="btn alt" id="btnRestart">Restart</button>
@@ -159,11 +162,7 @@ button:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
       <h2 id="resTitle">Level cleared!</h2>
       <div class="stars" id="resStars"><span>★</span><span>★</span><span>★</span></div>
       <div class="big-score" id="resScore">Balls left 0</div>
-      <button class="btn go" id="btnNext">Next level</button>
-      <div class="row">
-        <button class="btn alt" id="btnAgain">Again</button>
-        <button class="btn alt" id="btnResLevels">Levels</button>
-      </div>
+      <button class="btn go big" id="btnNext" aria-label="Next level"></button>
     </div>
   </div>
 </div>
@@ -212,6 +211,9 @@ function colsOf(m,o){const ls=(o&&o.layers)||[m];return Math.max(...ls.map(l=>l[
 function pair(L,R,lo,ro){const cols=Math.max(colsOf(L,lo),colsOf(R,ro));const x=cols*CELL/2+0.6;return[T(-x,L,lo),T(x,R,ro)]}
 function trio(A,B,C,oa,ob,oc){const cols=Math.max(colsOf(A,oa),colsOf(B,ob),colsOf(C,oc));const x=cols*CELL+0.95;return[T(-x,A,oa),T(0,B,ob),T(x,C,oc)]}
 const grid=(c,r,ch)=>Array.from({length:r},()=>ch.repeat(c));
+/* skyline shapes: one height per column, filled from the table up. ch is a letter, or a function of (column, row from the bottom) */
+const prof=(hs,ch)=>{const H=Math.max(...hs);return Array.from({length:H},(_,r)=>hs.map((h,c)=>h>=H-r?(typeof ch==='function'?ch(c,H-1-r):ch):'.').join(''))};
+const chk=(a,b)=>(c,r)=>(c+r)%2?b:a, stripes=(a,b)=>(c,r)=>r%2?b:a;
 const LEVELS=[
   {name:'Warm Up',balls:7,tables:[T(0,['JJJJ','JJJJ'],{jar:0})]},
   {name:'Two Tables',balls:13,tables:pair(grid(3,3,'T'),grid(3,3,'J'),{tin:0},{jar:1})},
@@ -242,7 +244,27 @@ const LEVELS=[
   {name:'Super Deep',balls:21,tables:pair(grid(4,5,'J'),grid(4,5,'T'),{jar:1,depth:2},{tin:3,depth:2})},
   {name:'Rainbow',balls:16,tables:trio(grid(3,6,'J'),grid(3,6,'J'),grid(3,6,'J'),{jar:0},{jar:1},{jar:4})},
   {name:'Skyline',balls:17,tables:pair(['T....T','T.T..T','T.T.TT','TTTTTT','TTTTTT'],['J..J..','J..J.J','JJ.J.J','JJJJJJ','JJJJJJ'],{tin:0},{jar:3})},
-  {name:'Grand Finale',balls:22,tables:pair(['JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT'],['TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ'],{jar:0,tin:1},{jar:2,tin:0})}
+  {name:'Grand Finale',balls:22,tables:pair(['JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT'],['TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ','JTJTJT','TJTJTJ'],{jar:0,tin:1},{jar:2,tin:0})},
+  {name:'Hill Top',balls:14,tables:[T(0,prof([1,2,3,4,3,2,1],'J'),{jar:1})]},
+  {name:'Castles',balls:18,tables:pair(prof([4,2,3,2,4],'T'),prof([4,2,3,2,4],'J'),{tin:0},{jar:2})},
+  {name:'Stripes',balls:20,tables:pair(prof([4,4,4,4,4],stripes('J','T')),prof([4,4,4,4,4],stripes('T','J')),{jar:0,tin:1},{jar:3,tin:2})},
+  {name:'Zig Zag',balls:18,tables:pair(prof([2,4,2,4,2],'J'),prof([4,2,4,2,4],'T'),{jar:4},{tin:3})},
+  {name:'Four Towers',balls:20,tables:[T(-3.15,grid(2,5,'J'),{jar:0}),T(-1.05,grid(2,5,'T'),{tin:0}),T(1.05,grid(2,5,'J'),{jar:2}),T(3.15,grid(2,5,'T'),{tin:2})]},
+  {name:'Stone Hats',balls:20,tables:pair(['SSSS','JJJJ','JJJJ','JJJJ'],['SSSS','TTTT','TTTT','TTTT'],{jar:1},{tin:1})},
+  {name:'Near and Far',balls:22,tables:[T(-2.3,grid(3,4,'T'),{z:-6.5,h:0.9,tin:3}),T(2.3,grid(3,4,'T'),{z:-6.5,h:0.9,tin:0}),T(0,grid(5,3,'J'),{z:-11,h:3,jar:3})]},
+  {name:'Steps Up',balls:18,tables:trio(grid(3,3,'J'),grid(3,3,'T'),grid(3,3,'J'),{jar:0,h:0.8},{tin:2,h:1.6},{jar:4,h:2.4})},
+  {name:'Big Pyramid',balls:18,tables:[T(0,prof([1,2,3,4,5,4,3,2,1],stripes('J','T')),{jar:2,tin:0})]},
+  {name:'Great Wall',balls:24,tables:[T(0,prof([6,6,6,6,6,6,6,6],chk('J','T')),{jar:0,tin:3})]},
+  {name:'Deep Stairs',balls:20,tables:pair(prof([1,2,3,4],'J'),prof([4,3,2,1],'T'),{jar:3,depth:2},{tin:1,depth:2})},
+  {name:'Stone Steps',balls:22,tables:pair(prof([1,2,3,4],(c,r)=>r?'J':'S'),prof([4,3,2,1],(c,r)=>r?'T':'S'),{jar:1},{tin:2})},
+  {name:'In and Out',balls:20,tables:[T(-2.75,grid(3,4,'J'),{z:-7,jar:4}),T(0,grid(3,4,'T'),{z:-10,h:2.2,tin:0}),T(2.75,grid(3,4,'J'),{z:-7,jar:0})]},
+  {name:'Rainbow Towers',balls:24,tables:[-3.4,-1.7,0,1.7,3.4].map((x,i)=>T(x,grid(2,5,'J'),{jar:i}))},
+  {name:'Crowns',balls:18,tables:pair(prof([4,1,3,1,4],'T'),prof([4,1,3,1,4],'J'),{tin:3},{jar:2})},
+  {name:'Mountains',balls:18,tables:pair(prof([1,3,5,3,1],'J'),prof([2,4,6,4,2],'T'),{jar:0},{tin:1})},
+  {name:'Stone Castle',balls:28,tables:pair(null,null,{layers:[['.....','S.S.S','SSSSS'],grid(5,4,'J')],jar:4},{layers:[['.....','S.S.S','SSSSS'],grid(5,4,'T')],tin:0})},
+  {name:'Up High',balls:20,tables:pair(grid(4,4,'J'),grid(4,4,'T'),{jar:1,h:2.4},{tin:3,h:2.4})},
+  {name:'Super Checkers',balls:24,tables:pair(prof([6,6,6,6,6,6],chk('J','T')),prof([6,6,6,6,6,6],chk('T','J')),{jar:3,tin:2},{jar:0,tin:1})},
+  {name:'Pew Pew Party',balls:28,tables:[T(-2.2,prof([4,4,4,4],chk('J','T')),{z:-7,h:0.9,jar:0,tin:1}),T(2.2,prof([4,4,4,4],chk('T','J')),{z:-7,h:0.9,jar:2,tin:0}),T(0,prof([1,2,3,4,3,2,1],'J'),{z:-11.5,h:2.9,jar:4})]}
 ];
 LEVELS.forEach(L=>L.tables.forEach(tb=>{
   if(tb.layers){tb.depth=tb.layers.length}else tb.layers=Array.from({length:tb.depth},()=>tb.mask);
@@ -541,7 +563,9 @@ let progress={stars:[]};
 const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 try{const p=JSON.parse(localStorage.getItem('topple-town-v1')||'null');if(p&&Array.isArray(p.stars))progress=p}catch(e){}
 function saveProgress(){try{localStorage.setItem('topple-town-v1',JSON.stringify(progress))}catch(e){}}
-let infinite=!!progress.infinite;
+/* little-kid mode: infinite balls is on unless a grown-up has turned it off since this update */
+if(!progress.kid){progress.kid=1;progress.infinite=true}
+let infinite=progress.infinite!==false;
 let crumbleQ=[];
 
 /* ---------- audio (synthesised, starts on first tap) ---------- */
@@ -905,7 +929,15 @@ function loadLevel(i){
   fitCamera();
   renderBalls(false);
   aimP.set(0,2,-10);shot=solve(aimP);
-  if(cur===0&&!firedOnce)$('hint').classList.remove('gone');else $('hint').classList.add('gone');
+  placeHint();
+}
+/* the pointing hand sits with its fingertip on the middle of the first table's stack, until the first shot */
+function placeHint(){
+  const el=$('hint');
+  if(firedOnce||!LEVELS[cur]){el.classList.add('gone');return}
+  const tb=LEVELS[cur].tables[0],v=V3(tb.x,tb.h+ROW*0.9,tb.z).project(camera);
+  el.style.left=((v.x+1)/2*100).toFixed(1)+'%';el.style.top=((1-v.y)/2*100).toFixed(1)+'%';
+  el.classList.toggle('gone',state!=='play');
 }
 
 function rmBody(o){if(o.col)colMap.delete(o.col.handle);try{world.removeRigidBody(o.body)}catch(_){}}
@@ -983,14 +1015,31 @@ function sparkle(P,color,size){jamFx.sparkle(P,color,size)}
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 const backPlane=new THREE.Plane(V3(0,0,1),24),hitTmp=V3(0,0,0);
 let lastPointer=null;
+/* aim assist for little fingers: a tap near a jar, tin or block aims at the closest one.
+   The reach is about two jars wide, and wider still when only a few are left. */
+const AV=V3(0,0,0);
+function assist(px,py,r){
+  let best=null,bd=remaining<=3?120:66;
+  for(const t of targets){
+    if(t.broken||t.queued)continue;
+    AV.copy(t.cp).project(camera);if(AV.z>1)continue;
+    const d=Math.hypot((AV.x+1)/2*r.width-px,(1-AV.y)/2*r.height-py);
+    if(d<bd){bd=d;best=t}
+  }
+  return best;
+}
 function pointAt(e){
   const r=cv.getBoundingClientRect();
-  ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
-  ray.setFromCamera(ndc,camera);
-  const hits=ray.intersectObjects([pickables,ground],true);
-  if(hits.length)aimP.copy(hits[0].point);
-  else if(ray.ray.intersectPlane(backPlane,hitTmp))aimP.copy(hitTmp);
-  else return;
+  const near=assist(e.clientX-r.left,e.clientY-r.top,r);
+  if(near)aimP.copy(near.cp);
+  else{
+    ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+    ray.setFromCamera(ndc,camera);
+    const hits=ray.intersectObjects([pickables,ground],true);
+    if(hits.length)aimP.copy(hits[0].point);
+    else if(ray.ray.intersectPlane(backPlane,hitTmp))aimP.copy(hitTmp);
+    else return;
+  }
   aimP.z=Math.min(aimP.z,-2);aimP.y=Math.max(0.1,Math.min(aimP.y,12));aimP.x=Math.max(-9,Math.min(9,aimP.x));
   shot=solve(aimP);
 }
@@ -1076,7 +1125,7 @@ function finish(win){
   ended=true;holding=false;
   let stars=0;
   if(win){
-    const frac=Math.max(0,ballsMax-used)/ballsMax;stars=frac>=.35?3:frac>=.15?2:1;
+    const frac=Math.max(0,ballsMax-used)/ballsMax;stars=infinite?3:frac>=.35?3:frac>=.15?2:1;
     if((progress.stars[cur]||0)<stars){progress.stars[cur]=stars;saveProgress()}
     sfx.win();confetti();
   }else sfx.fail();
@@ -1085,10 +1134,16 @@ function finish(win){
     const sp=$('resStars').children;
     for(let i=0;i<3;i++){sp[i].className='';void sp[i].offsetWidth;if(i<stars)sp[i].className='on'}
     $('resStars').hidden=!win;
-    $('resScore').textContent=win?(infinite?`Balls used: ${used}`:`Balls left: ${ballsLeft}`):`${remaining} left on the tables. Have another go!`;
-    $('btnNext').textContent=win?(cur===LEVELS.length-1?'Back to level 1':'Next level'):'Try again';
-    $('btnNext').dataset.mode=win?'next':'again';
+    $('resScore').hidden=win&&infinite;
+    $('resScore').textContent=win?`Balls left: ${ballsLeft}`:`${remaining} left on the tables. Have another go!`;
+    const nb=$('btnNext');
+    nb.innerHTML=win?ICON_PLAY:ICON_AGAIN;
+    nb.setAttribute('aria-label',win?(cur===LEVELS.length-1?'Back to level 1':'Next level'):'Try again');
+    nb.dataset.mode=win?'next':'again';
     show('result');
+    /* after a win the next level starts by itself, so nobody has to find the right button */
+    nb.classList.remove('auto');
+    if(win&&!testFreeze){void nb.offsetWidth;nb.classList.add('auto');autoNext=setTimeout(()=>{autoNext=0;if(state==='result')startLevel(cur+1)},4500)}
   },win?800:300);
 }
 const CONF_GEO=new THREE.PlaneGeometry(.18,.11);
@@ -1140,6 +1195,7 @@ function resize(){
   renderer.setSize(w,h,false);
   const a=w/h;camera.aspect=a;
   fitCamera();
+  if(world)placeHint();
 }
 /* zoom out just enough that every table (and the top of its stack) fits on this screen */
 function fitCamera(){
@@ -1198,8 +1254,10 @@ function renderBalls(bump){
   $('badge').setAttribute('aria-label',infinite?'Unlimited balls':`${ballsLeft} balls left`);
 }
 function toast(t){const el=$('toast');el.textContent=t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show')}
-let prevState='title';
+const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>',ICON_AGAIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 0 7.6 5.5l-2.9 1A5 5 0 1 1 12 7v3l5-4.5L12 1z"/></svg>';
+let prevState='title',autoNext=0;
 function show(which){
+  if(autoNext){clearTimeout(autoNext);autoNext=0}
   if((which==='levels'||which==='menu')&&state!=='levels'&&state!=='menu')prevState=state;
   state=which;
   $('ovTitle').hidden=which!=='title';
@@ -1209,6 +1267,7 @@ function show(which){
   $('hud').hidden=which==='title';
   if(which!=='play')holding=false;
   if(which==='levels')buildGrid();
+  if(world)placeHint();
 }
 function buildGrid(){
   const g=$('grid');g.innerHTML='';
@@ -1226,23 +1285,29 @@ async function keepAwake(){try{if(navigator.wakeLock&&!wake){wake=await navigato
 function startLevel(i){loadLevel(i);show('play');keepAwake()}
 
 $('btnPlay').onclick=()=>{audio();sfx.click();let n=0;while(n<LEVELS.length&&progress.stars[n])n++;startLevel(n>=LEVELS.length?0:n)};
-$('btnPick').onclick=()=>{audio();sfx.click();show('levels')};
-function syncInf(){const t=infinite?'Infinite balls: On':'Infinite balls: Off';$('btnInf').textContent=t;$('btnInfTitle').textContent=t;$('btnInf').classList.toggle('go',infinite);$('btnInfTitle').classList.toggle('go',infinite)}
+function syncInf(){$('btnInf').textContent=infinite?'Infinite balls: On':'Infinite balls: Off';$('btnInf').classList.toggle('go',infinite)}
 function toggleInf(){audio();sfx.click();infinite=!infinite;progress.infinite=infinite;saveProgress();if(!infinite)ballsLeft=Math.max(0,ballsMax-used);syncInf();renderBalls(false)}
-$('btnInf').onclick=toggleInf;$('btnInfTitle').onclick=toggleInf;syncInf();
+$('btnInf').onclick=toggleInf;syncInf();
 $('btnBack').onclick=()=>{sfx.click();show(prevState==='play'||prevState==='result'?prevState:'title')};
-$('btnMenu').onclick=()=>{audio();sfx.click();if(state==='play')show('menu')};
-$('btnResume').onclick=()=>{sfx.click();show('play')};
+/* grown-ups' menu: opens only on a press-and-hold, so little taps can't change settings or leave the game */
+function holdToOpen(el,fn){
+  let t=0;const end=()=>{if(t){clearTimeout(t);t=0}el.classList.remove('holding')};
+  el.addEventListener('pointerdown',e=>{e.preventDefault();audio();end();el.classList.add('holding');t=setTimeout(()=>{t=0;el.classList.remove('holding');sfx.click();fn()},900)});
+  for(const k of ['pointerup','pointercancel','pointerleave'])el.addEventListener(k,end);
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fn()}});
+}
+const openMenu=()=>{if(state==='play'||state==='title'||state==='result')show('menu')};
+holdToOpen($('btnMenu'),openMenu);holdToOpen($('btnGrown'),openMenu);
+$('btnResume').onclick=()=>{sfx.click();if(prevState==='title')show('title');else show(prevState==='result'?'result':'play')};
 $('btnRestart').onclick=()=>{sfx.click();startLevel(cur)};
 $('btnMenuLevels').onclick=()=>{sfx.click();show('levels')};
-$('btnAgain').onclick=()=>{sfx.click();startLevel(cur)};
-$('btnResLevels').onclick=()=>{sfx.click();show('levels')};
 $('btnNext').onclick=()=>{sfx.click();startLevel($('btnNext').dataset.mode==='next'?cur+1:cur)};
 $('btnMute').onclick=()=>{muted=!muted;audio();if(muted&&synth){try{synth.cancel()}catch(e){}}$('btnMute').textContent=muted?'Sound: Off':'Sound: On';if(!muted)sfx.click()};
 
 /* ---------- boot ---------- */
 function start(data){
-  $('btnPlay').disabled=false;$('btnPick').disabled=false;$('btnPlay').textContent='Play';
+  $('btnPlay').disabled=false;$('btnPlay').innerHTML=ICON_PLAY;
   resize();window.addEventListener('resize',resize);
   const lvl=data&&typeof data.level==='number'?data.level:0;
   loadLevel(lvl);
@@ -1251,7 +1316,7 @@ function start(data){
 }
 if(window.claude?.hot?.snapshot)window.claude.hot.snapshot(()=>({level:cur,playing:state==='play'}));
 function boot(data){
-  $('btnPlay').disabled=true;$('btnPick').disabled=true;$('btnPlay').textContent='Loading…';
+  $('btnPlay').disabled=true;$('btnPlay').textContent='Loading…';
   import(RAPIER_URL).then(m=>{R=m.default&&m.default.World?m.default:m;return R.init()})
     .then(()=>{eventQ=new R.EventQueue(true);start(data)})
     .catch(err=>{console.error(err);$('btnPlay').textContent='Could not load. Check your internet and reopen.'});
@@ -1298,6 +1363,13 @@ window.__tt={
     const v=V3(p.x,p.y,p.z).project(camera),r=cv.getBoundingClientRect();
     pointAt({clientX:r.left+(v.x+1)/2*r.width,clientY:r.top+(1-v.y)/2*r.height});
     return{target:[p.x,p.y,p.z],aim:[aimP.x,aimP.y,aimP.z]}},
+  kid:()=>({infinite,gearNeedsHold:!$('btnMenu').onclick}),
+  show:w=>show(w),
+  finish:w=>finish(w),
+  stars:i=>progress.stars[i]||0,
+  nearTap:(k,dx,dy)=>{const live=targets.filter(t=>!t.broken);const t=live[k%live.length];const v=t.cp.clone().project(camera),r=cv.getBoundingClientRect();
+    pointAt({clientX:r.left+(v.x+1)/2*r.width+dx,clientY:r.top+(1-v.y)/2*r.height+dy});
+    return Math.min(...live.map(o=>o.cp.distanceTo(aimP)))},
   praise:()=>{praise();return{text:$('toast').textContent,canSpeak:!!synth}},
   levels:LEVELS.length
 };

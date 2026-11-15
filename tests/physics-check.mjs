@@ -34,6 +34,9 @@ try {
   await page.evaluate(() => window.__tt.freeze(true));
   log('Game and Rapier physics loaded.');
   await page.screenshot({ path: `${OUT}/00-title.png` });
+  const kid = await page.evaluate(() => window.__tt.kid());
+  if (!kid.infinite) fail('A fresh game should start with infinite balls on');
+  else log('✅ A fresh game starts with infinite balls on.');
 
   const levelCount = await page.evaluate(() => window.__tt.levels);
 
@@ -113,7 +116,7 @@ try {
 
   // 3. Graphics: draw calls on the biggest levels, and taps aim at what was tapped
   log('\n## Graphics\n');
-  for (const i of [9, 26, 29]) {
+  for (const i of [9, 26, 29, 39, 43]) {
     const calls = await page.evaluate(i => { window.__tt.play(i, false); return window.__tt.drawCalls(); }, i);
     const ok = calls <= 110;
     if (!ok) failed = true;
@@ -179,6 +182,36 @@ try {
   await grab('jam-combo');
 } catch (e) { fail('Jam effects check crashed: ' + e.message); }
 
+// Little-kid mode: near-miss taps still aim at a jar, wins always give 3 stars, and the screens need no reading
+try {
+  log('\n## Little-kid mode\n');
+  await grab('title');
+  const near = await page.evaluate(() => {
+    const t = window.__tt; t.play(9, true); const out = [];
+    for (let k = 0; k < 12; k++) out.push(t.nearTap(k * 7, k % 2 ? 40 : -40, k % 3 ? 25 : -25));
+    return Math.max(...out);
+  });
+  const nearOk = near < 0.05;
+  if (!nearOk) failed = true;
+  log(`- ${nearOk ? '✅' : '❌'} A tap about 45 pixels off a jar still aims at a jar (worst miss ${near.toFixed(2)} m)`);
+  await page.evaluate(() => { const t = window.__tt; t.freeze(false); t.play(0, true); });
+  await page.waitForTimeout(1200);
+  await grab('hint-hand');
+  const stars = await page.evaluate(() => { const t = window.__tt; t.freeze(true); t.play(1, true); for (let k = 0; k < 60; k++) t.fireAt(0, 9, -20); t.finish(true); return t.stars(1); });
+  await page.waitForTimeout(1500);
+  await grab('level-cleared');
+  if (stars !== 3) failed = true;
+  log(`- ${stars === 3 ? '✅' : '❌'} With infinite balls a win gives 3 stars however many balls were used (got ${stars})`);
+  await page.evaluate(() => window.__tt.show('menu'));
+  await grab('grown-ups-menu');
+  await page.evaluate(() => window.__tt.show('levels'));
+  await grab('level-grid');
+  const gridOk = await page.evaluate(() => { const g = document.getElementById('grid'); const c = g.closest('.card').getBoundingClientRect(); return g.children.length === window.__tt.levels && c.top >= 0 && c.bottom <= innerHeight; });
+  if (!gridOk) failed = true;
+  log(`- ${gridOk ? '✅' : '❌'} The level picker lists every level and fits the screen`);
+  await page.evaluate(() => { window.__tt.freeze(true); window.__tt.play(0, true); });
+} catch (e) { fail('Little-kid mode check crashed: ' + e.message); }
+
 // The spoken praise: the words pop up on screen and the browser is asked to say them
 try {
   log('\n## Nice job Remy\n');
@@ -192,7 +225,7 @@ try {
 } catch (e) { fail('Praise check crashed: ' + e.message); }
 
 try {
-  for (const [i, name] of [[28, 'level29-standing'], [25, 'level26-standing'], [9, 'level10-standing']]) {
+  for (const [i, name] of [[36, 'level37'], [39, 'level40'], [43, 'level44'], [46, 'level47'], [49, 'level50']]) {
     await page.evaluate(i => { window.__tt.play(i, false); window.__tt.advance(0.1); window.__tt.render(); }, i);
     await grab(name);
   }

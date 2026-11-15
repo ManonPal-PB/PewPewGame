@@ -1,6 +1,6 @@
 # Pew Pew
 
-A 3D beach cannon game for phones: tap where you want to shoot and knock every jam jar and tin off the tables. 30 levels, an infinite-balls mode, and offline play once it's installed on the home screen.
+A 3D beach cannon game for phones: tap where you want to shoot and knock every jam jar and tin off the tables. 50 levels, a little-kid mode (infinite balls, aim assist, a press-and-hold grown-ups' menu, spoken praise), and offline play once it's installed on the home screen.
 
 ## What's in here
 
